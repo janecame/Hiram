@@ -1,9 +1,0 @@
-﻿[2026-06-20 00:23:15] EDITED: c:\Users\WINSERVER\Documents\Rodrigo Training Code\Hiram\frontend\src\types\item.ts
-[2026-06-20 00:23:23] EDITED: c:\Users\WINSERVER\Documents\Rodrigo Training Code\Hiram\frontend\src\types\item.ts
-[2026-06-20 00:23:36] EDITED: c:\Users\WINSERVER\Documents\Rodrigo Training Code\Hiram\backend\src\types\item.ts
-[2026-06-20 00:23:47] EDITED: c:\Users\WINSERVER\Documents\Rodrigo Training Code\Hiram\frontend\src\types\user.ts
-[2026-06-20 00:24:02] EDITED: c:\Users\WINSERVER\Documents\Rodrigo Training Code\Hiram\frontend\src\data\mock-users.ts
-[2026-06-20 00:24:32] EDITED: c:\Users\WINSERVER\Documents\Rodrigo Training Code\Hiram\frontend\src\data\mock-items.ts
-[2026-06-20 00:25:00] EDITED: c:\Users\WINSERVER\Documents\Rodrigo Training Code\Hiram\backend\src\data\mock-items.ts
-[2026-06-20 00:25:07] EDITED: c:\Users\WINSERVER\Documents\Rodrigo Training Code\Hiram\frontend\src\api\items.ts
-[2026-06-20 00:25:13] EDITED: c:\Users\WINSERVER\Documents\Rodrigo Training Code\Hiram\backend\src\routes\items.ts

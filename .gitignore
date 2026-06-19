@@ -5,3 +5,10 @@ dist-ssr
 .vite
 .DS_Store
 npm-debug.log*
+
+# Build artifacts
+*.tsbuildinfo
+
+# Hook-generated logs
+.claude/bash-log.txt
+.claude/edit-log.txt

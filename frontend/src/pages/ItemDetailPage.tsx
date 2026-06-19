@@ -6,26 +6,53 @@ import {
   Chip,
   CircularProgress,
   Container,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   Divider,
+  Link,
   Stack,
   Typography,
 } from "@mui/material";
-import { ArrowLeft, User } from "lucide-react";
+import { ArrowLeft, ClipboardList, User } from "lucide-react";
 import { Link as RouterLink, useParams } from "react-router-dom";
 import { useItem } from "../hooks/useItem";
 import {
   CATEGORY_LABELS,
   CONDITION_LABELS,
+  STATUS_LABELS,
 } from "../types/item";
 import { formatDistance, formatPeso } from "../lib/format";
 import { CategoryBlock } from "../components/CategoryBlock";
 import { StampBadge } from "../components/StampBadge";
 import { EmptyState } from "../components/EmptyState";
+import { StatusBadge } from "../components/StatusBadge";
+import { DurationSelector } from "../components/DurationSelector";
+import { ReviewsSection } from "../components/ReviewsSection";
+import { ChatPanel } from "../components/ChatPanel";
+
+// Phase 1 mock: there is no real auth yet. We assume the viewer is a guest so
+// the "Request to Borrow" action surfaces the register/log-in prompt.
+const IS_AUTHENTICATED = false;
 
 export function ItemDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { data: item, isLoading } = useItem(id);
   const [requested, setRequested] = useState(false);
+  const [authPromptOpen, setAuthPromptOpen] = useState(false);
+
+  const isAvailable = item?.status === "available";
+
+  function handleRequest() {
+    // Phase 1: borrowing requires an account. Guests get a register/log-in prompt.
+    if (!IS_AUTHENTICATED) {
+      setAuthPromptOpen(true);
+      return;
+    }
+    setRequested(true);
+  }
 
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>
@@ -81,11 +108,18 @@ export function ItemDetailPage() {
                 label={CONDITION_LABELS[item.condition]}
                 variant="outlined"
               />
+              <StatusBadge status={item.status} />
             </Stack>
 
             <Typography variant="h3" component="h1">
               {item.title}
             </Typography>
+
+            {item.brand && (
+              <Typography variant="overline" sx={{ color: "text.secondary" }}>
+                {item.brand}
+              </Typography>
+            )}
 
             <Stack direction="row" spacing={2} sx={{ my: 1 }}>
               <StampBadge
@@ -100,6 +134,22 @@ export function ItemDetailPage() {
               />
             </Stack>
 
+            {typeof item.pricePerHour === "number" && (
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                Also available hourly at{" "}
+                <Box
+                  component="span"
+                  sx={{
+                    color: "secondary.main",
+                    fontFamily: '"JetBrains Mono", monospace',
+                  }}
+                >
+                  {formatPeso(item.pricePerHour)}
+                </Box>{" "}
+                / hour
+              </Typography>
+            )}
+
             <Typography variant="body1" sx={{ color: "text.secondary", lineHeight: 1.7 }}>
               {item.description}
             </Typography>
@@ -111,10 +161,46 @@ export function ItemDetailPage() {
               <Stack direction="row" alignItems="center" spacing={1}>
                 <User size={16} />
                 <Typography variant="body2" color="text.secondary">
-                  Listed by <strong>{item.owner}</strong>
+                  Listed by{" "}
+                  {/* TODO: wire to ProfilePage (Round 3) */}
+                  <Link
+                    component={RouterLink}
+                    to={`/profile/${encodeURIComponent(item.owner)}`}
+                    color="primary"
+                    fontWeight={600}
+                  >
+                    {item.owner}
+                  </Link>
                 </Typography>
               </Stack>
             </Stack>
+
+            {item.requirements && (
+              <>
+                <Divider />
+                <Stack spacing={1}>
+                  <Stack direction="row" alignItems="center" spacing={1}>
+                    <ClipboardList size={18} />
+                    <Typography variant="h6" component="h2">
+                      Requirements to borrow
+                    </Typography>
+                  </Stack>
+                  <Typography
+                    variant="body2"
+                    sx={{ color: "text.secondary", lineHeight: 1.7, whiteSpace: "pre-line" }}
+                  >
+                    {item.requirements}
+                  </Typography>
+                </Stack>
+              </>
+            )}
+
+            <Divider />
+
+            <DurationSelector
+              pricePerDay={item.pricePerDay}
+              pricePerHour={item.pricePerHour}
+            />
 
             <Divider />
 
@@ -124,19 +210,59 @@ export function ItemDetailPage() {
                 no real message was sent.)
               </Alert>
             ) : (
-              <Button
-                variant="contained"
-                color="secondary"
-                size="large"
-                onClick={() => setRequested(true)}
-                sx={{ alignSelf: "flex-start" }}
-              >
-                Request to Borrow
-              </Button>
+              <Stack spacing={1} alignItems="flex-start">
+                <Button
+                  variant="contained"
+                  color="secondary"
+                  size="large"
+                  onClick={handleRequest}
+                  disabled={!isAvailable}
+                >
+                  Request to Borrow
+                </Button>
+                {!isAvailable && (
+                  <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                    This item is {STATUS_LABELS[item.status].toLowerCase()} and
+                    cannot be requested right now.
+                  </Typography>
+                )}
+              </Stack>
             )}
+
+            <Divider />
+
+            <ChatPanel owner={item.owner} />
+
+            <Divider />
+
+            <ReviewsSection rating={item.rating} />
           </Stack>
         </Box>
       )}
+
+      {/* Phase 1 mock auth prompt — guests must register/log in to borrow. */}
+      <Dialog open={authPromptOpen} onClose={() => setAuthPromptOpen(false)}>
+        <DialogTitle>Account required</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            You need an account to request an item. Please register or log in to
+            continue. (Authentication is mocked in Phase 1.)
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAuthPromptOpen(false)} color="primary">
+            Maybe later
+          </Button>
+          {/* TODO: wire to real register/log-in flow (Phase 2 auth) */}
+          <Button
+            variant="contained"
+            color="secondary"
+            onClick={() => setAuthPromptOpen(false)}
+          >
+            Register / Log in
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 }

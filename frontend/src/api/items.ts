@@ -1,5 +1,5 @@
 import { MOCK_ITEMS } from "../data/mock-items";
-import type { Category, Item, NewItemInput } from "../types/item";
+import type { Category, Item, ItemStatus, NewItemInput } from "../types/item";
 
 /**
  * ── The only file the real backend will replace ──
@@ -19,6 +19,7 @@ export type SortKey = "nearest" | "cheapest" | "newest";
 
 export interface ListItemsFilters {
   category?: Category | "all";
+  status?: ItemStatus | "all";
   search?: string;
   sort?: SortKey;
 }
@@ -28,17 +29,23 @@ export async function listItems(
 ): Promise<Item[]> {
   await delay();
 
-  const { category = "all", search = "", sort = "nearest" } = filters;
+  const {
+    category = "all",
+    status = "all",
+    search = "",
+    sort = "nearest",
+  } = filters;
   const query = search.trim().toLowerCase();
 
   let result = store.filter((item) => {
     const matchesCategory = category === "all" || item.category === category;
+    const matchesStatus = status === "all" || item.status === status;
     const matchesSearch =
       query === "" ||
       item.title.toLowerCase().includes(query) ||
       item.description.toLowerCase().includes(query) ||
       item.area.toLowerCase().includes(query);
-    return matchesCategory && matchesSearch;
+    return matchesCategory && matchesStatus && matchesSearch;
   });
 
   result = [...result].sort((a, b) => {

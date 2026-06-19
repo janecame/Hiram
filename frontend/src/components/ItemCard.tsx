@@ -1,10 +1,22 @@
 import { Box, Card, CardActionArea, Chip, Stack, Typography } from "@mui/material";
-import { MapPin } from "lucide-react";
+import type { ChipProps } from "@mui/material";
+import { MapPin, Star } from "lucide-react";
 import { Link as RouterLink } from "react-router-dom";
-import type { Item } from "../types/item";
-import { CATEGORY_LABELS } from "../types/item";
+import type { Item, ItemStatus } from "../types/item";
+import { CATEGORY_LABELS, STATUS_LABELS } from "../types/item";
 import { formatDistance, formatPeso } from "../lib/format";
 import { CategoryBlock } from "./CategoryBlock";
+
+/**
+ * Status → MUI Chip color (theme palette only, no hardcoded hex).
+ * available = positive (success/green), reserved = highlight (warning/amber),
+ * unavailable = muted (default/grey).
+ */
+const STATUS_CHIP_COLOR: Record<ItemStatus, ChipProps["color"]> = {
+  available: "success",
+  reserved: "warning",
+  unavailable: "default",
+};
 
 export function ItemCard({ item }: { item: Item }) {
   return (
@@ -38,6 +50,20 @@ export function ItemCard({ item }: { item: Item }) {
               bgcolor: "background.paper",
             }}
           />
+          <Chip
+            label={STATUS_LABELS[item.status]}
+            size="small"
+            color={STATUS_CHIP_COLOR[item.status]}
+            variant={item.status === "unavailable" ? "outlined" : "filled"}
+            sx={{
+              position: "absolute",
+              top: 10,
+              right: 10,
+              ...(item.status === "unavailable" && {
+                bgcolor: "background.paper",
+              }),
+            }}
+          />
         </Box>
 
         <Stack spacing={1} sx={{ p: 2, flexGrow: 1 }}>
@@ -47,14 +73,34 @@ export function ItemCard({ item }: { item: Item }) {
 
           <Stack
             direction="row"
-            spacing={0.5}
+            spacing={1}
             alignItems="center"
+            justifyContent="space-between"
             sx={{ color: "text.secondary" }}
           >
-            <MapPin size={14} />
-            <Typography variant="caption">
-              {item.area} · {formatDistance(item.distanceKm)}
-            </Typography>
+            <Stack direction="row" spacing={0.5} alignItems="center" sx={{ minWidth: 0 }}>
+              <MapPin size={14} />
+              <Typography variant="caption" noWrap>
+                {item.area} · {formatDistance(item.distanceKm)}
+              </Typography>
+            </Stack>
+
+            {item.rating !== undefined && (
+              <Stack
+                direction="row"
+                spacing={0.25}
+                alignItems="center"
+                sx={{ color: "warning.main", flexShrink: 0 }}
+              >
+                <Star size={14} fill="currentColor" />
+                <Typography
+                  variant="overline"
+                  sx={{ lineHeight: 1, color: "text.primary" }}
+                >
+                  {item.rating.toFixed(1)}
+                </Typography>
+              </Stack>
+            )}
           </Stack>
 
           <Box sx={{ flexGrow: 1 }} />

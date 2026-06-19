@@ -15,11 +15,34 @@ export const itemFormSchema = z.object({
     .trim()
     .min(20, "Add a bit more detail (at least 20 characters)")
     .max(600, "Keep the description under 600 characters"),
+  brand: z
+    .string()
+    .trim()
+    .max(60, "Keep the brand name short")
+    .optional(),
   pricePerDay: z.coerce
     .number({ invalid_type_error: "Enter a price" })
     .int("Use a whole peso amount")
     .min(1, "Price must be at least ₱1")
     .max(100000, "That seems too high"),
+  pricePerHour: z
+    .union([z.literal(""), z.coerce.number()])
+    .transform((v) => (v === "" ? undefined : v))
+    .pipe(
+      z
+        .number({ invalid_type_error: "Enter a valid amount" })
+        .int("Use a whole peso amount")
+        .min(1, "Price must be at least ₱1")
+        .max(100000, "That seems too high")
+        .optional(),
+    )
+    .optional(),
+  requirements: z
+    .string()
+    .trim()
+    .max(400, "Keep requirements under 400 characters")
+    .optional(),
+  imageUrl: z.string().optional(),
   area: z
     .string()
     .trim()

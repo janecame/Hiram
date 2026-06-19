@@ -1,0 +1,97 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm *)",
+      "Bash(npx *)",
+      "Bash(git *)",
+      "Bash(sqlcmd *)",
+      "Bash(dotnet *)",
+      "Bash(New-Item *)",
+      "Bash(mkdir *)",
+      "Bash(touch *)",
+      "Bash(md *)",
+      "Bash(ls)",
+      "Bash(ls *)",
+      "Bash(dir)",
+      "Bash(dir *)",
+      "Bash(cd *)",
+      "Bash(pwd)",
+      "Bash(Get-ChildItem)",
+      "Bash(Get-ChildItem *)",
+      "Bash(Set-Location *)",
+      "Bash(Get-Location)",
+      "Bash(echo *)",
+      "Bash(cat *)",
+      "Bash(Get-Content *)",
+      "Bash(Copy-Item *)",
+      "Bash(Move-Item *)",
+      "Bash(Remove-Item *)",
+      "Bash(Rename-Item *)",
+      "Bash(Test-Path *)",
+      "Bash(Resolve-Path *)",
+      "Bash(Select-String *)",
+      "Bash(jq *)",
+      "Bash(curl *)",
+      "Read(//c/Users/WINSERVER/Documents/Rodrigo Training Code/**)"
+    ],
+    "deny": []
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$raw = [Console]::In.ReadToEnd(); $data = $raw | ConvertFrom-Json; $cmd = $data.tool_input.command; $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'; Add-Content -Path '.claude/bash-log.txt' -Value \"[$timestamp] $cmd\" -Encoding utf8",
+            "shell": "powershell",
+            "statusMessage": "Logging bash command...",
+            "async": true
+          },
+          {
+            "type": "command",
+            "command": ".claude/hooks/guard-sql.ps1",
+            "shell": "powershell",
+            "statusMessage": "Checking for dangerous SQL..."
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/guard-appsettings.ps1",
+            "shell": "powershell",
+            "statusMessage": "Checking protected files..."
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$raw = [Console]::In.ReadToEnd(); $data = $raw | ConvertFrom-Json; $file = $data.tool_input.file_path; if ($file -match '\\.(tsx|ts|jsx|js|cs|csproj)$') { $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'; Add-Content -Path '.claude/edit-log.txt' -Value \"[$timestamp] EDITED: $file\" -Encoding utf8 }",
+            "shell": "powershell",
+            "statusMessage": "Logging file edit...",
+            "async": true
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "Write-Output '{\"systemMessage\": \"Session complete! Run: git status to review changes before committing.\"}'",
+            "shell": "powershell"
+          }
+        ]
+      }
+    ]
+  }
+}

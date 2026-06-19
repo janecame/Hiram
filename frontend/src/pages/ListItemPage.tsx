@@ -8,7 +8,8 @@ import {
   Typography,
   InputAdornment,
 } from "@mui/material";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ImagePlus, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
@@ -27,10 +28,14 @@ export function ListItemPage() {
   const navigate = useNavigate();
   const { mutateAsync, isPending } = useCreateItem();
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+
   const {
     register,
     handleSubmit,
     control,
+    setValue,
     formState: { errors },
   } = useForm<ItemFormValues>({
     resolver: zodResolver(itemFormSchema),
@@ -38,19 +43,52 @@ export function ListItemPage() {
       title: "",
       category: "",
       description: "",
+      brand: "",
       pricePerDay: undefined,
+      pricePerHour: undefined,
+      imageUrl: undefined,
+      requirements: "",
       area: "",
       condition: "",
       owner: "",
     } as unknown as ItemFormValues,
   });
 
+  // Revoke the object URL when it changes or the page unmounts.
+  useEffect(() => {
+    return () => {
+      if (imagePreview) URL.revokeObjectURL(imagePreview);
+    };
+  }, [imagePreview]);
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    const url = URL.createObjectURL(file);
+    setImagePreview(url);
+    setValue("imageUrl", url, { shouldValidate: true });
+  };
+
+  const clearImage = () => {
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    setImagePreview(null);
+    setValue("imageUrl", undefined, { shouldValidate: true });
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   const onSubmit = handleSubmit(async (values) => {
     await mutateAsync({
       title: values.title,
       category: values.category as Category,
       description: values.description,
+      brand: values.brand?.trim() ? values.brand : undefined,
       pricePerDay: values.pricePerDay,
+      pricePerHour: values.pricePerHour,
+      imageUrl: values.imageUrl,
+      requirements: values.requirements?.trim()
+        ? values.requirements
+        : undefined,
       area: values.area,
       condition: values.condition as Condition,
       owner: values.owner,
@@ -123,6 +161,15 @@ export function ListItemPage() {
           />
 
           <TextField
+            label="Brand"
+            fullWidth
+            placeholder="e.g. Bosch (optional)"
+            error={Boolean(errors.brand)}
+            helperText={errors.brand?.message}
+            {...register("brand")}
+          />
+
+          <TextField
             label="Price per day"
             type="number"
             fullWidth
@@ -135,6 +182,83 @@ export function ListItemPage() {
             }}
             {...register("pricePerDay")}
           />
+
+          <TextField
+            label="Price per hour"
+            type="number"
+            fullWidth
+            placeholder="Optional"
+            error={Boolean(errors.pricePerHour)}
+            helperText={errors.pricePerHour?.message}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">₱</InputAdornment>
+              ),
+            }}
+            {...register("pricePerHour")}
+          />
+
+          <Stack spacing={1}>
+            <Typography variant="overline" color="text.secondary">
+              Photo
+            </Typography>
+            {imagePreview ? (
+              <Box
+                sx={{
+                  position: "relative",
+                  borderRadius: 2,
+                  overflow: "hidden",
+                  border: "1px solid",
+                  borderColor: "divider",
+                }}
+              >
+                <Box
+                  component="img"
+                  src={imagePreview}
+                  alt="Item preview"
+                  sx={{
+                    display: "block",
+                    width: "100%",
+                    height: 220,
+                    objectFit: "cover",
+                  }}
+                />
+                <Button
+                  type="button"
+                  onClick={clearImage}
+                  size="small"
+                  variant="contained"
+                  color="secondary"
+                  startIcon={<X size={16} />}
+                  sx={{ position: "absolute", top: 8, right: 8 }}
+                >
+                  Remove
+                </Button>
+              </Box>
+            ) : (
+              <Button
+                type="button"
+                variant="outlined"
+                color="primary"
+                startIcon={<ImagePlus size={18} />}
+                onClick={() => fileInputRef.current?.click()}
+                sx={{ py: 2, borderStyle: "dashed" }}
+              >
+                Upload a photo
+              </Button>
+            )}
+            <Box
+              component="input"
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleImageChange}
+              sx={{ display: "none" }}
+            />
+            <Typography variant="caption" color="text.secondary">
+              Optional — no photo falls back to the category icon.
+            </Typography>
+          </Stack>
 
           <TextField
             label="Area"
@@ -173,6 +297,17 @@ export function ListItemPage() {
             error={Boolean(errors.owner)}
             helperText={errors.owner?.message}
             {...register("owner")}
+          />
+
+          <TextField
+            label="Requirements to borrow"
+            fullWidth
+            multiline
+            minRows={3}
+            placeholder="e.g. Valid ID, ₱500 deposit, pick-up only (optional)"
+            error={Boolean(errors.requirements)}
+            helperText={errors.requirements?.message}
+            {...register("requirements")}
           />
 
           <Button

@@ -2,7 +2,11 @@ import { useState } from "react";
 import { Box, Container, Stack, Typography } from "@mui/material";
 import { useItems } from "../hooks/useItems";
 import type { SortKey } from "../api/items";
-import { FilterBar, type CategoryFilter } from "../components/FilterBar";
+import {
+  FilterBar,
+  type CategoryFilter,
+  type StatusFilter,
+} from "../components/FilterBar";
 import { ItemCard } from "../components/ItemCard";
 import { ItemCardSkeleton } from "../components/ItemCardSkeleton";
 import { EmptyState } from "../components/EmptyState";
@@ -20,10 +24,16 @@ const gridSx = {
 
 export function BrowsePage() {
   const [category, setCategory] = useState<CategoryFilter>("all");
+  const [status, setStatus] = useState<StatusFilter>("all");
   const [sort, setSort] = useState<SortKey>("nearest");
   const [search, setSearch] = useState("");
 
-  const { data: items, isLoading } = useItems({ category, sort, search });
+  const { data: items, isLoading } = useItems({
+    category,
+    status,
+    sort,
+    search,
+  });
 
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>
@@ -39,6 +49,8 @@ export function BrowsePage() {
       <FilterBar
         category={category}
         onCategoryChange={setCategory}
+        status={status}
+        onStatusChange={setStatus}
         sort={sort}
         onSortChange={setSort}
         search={search}

@@ -8,15 +8,23 @@ import {
   InputAdornment,
 } from "@mui/material";
 import { Search } from "lucide-react";
-import type { Category } from "../types/item";
-import { CATEGORIES, CATEGORY_LABELS } from "../types/item";
+import type { Category, ItemStatus } from "../types/item";
+import {
+  CATEGORIES,
+  CATEGORY_LABELS,
+  STATUSES,
+  STATUS_LABELS,
+} from "../types/item";
 import type { SortKey } from "../api/items";
 
 export type CategoryFilter = Category | "all";
+export type StatusFilter = ItemStatus | "all";
 
 interface FilterBarProps {
   category: CategoryFilter;
   onCategoryChange: (c: CategoryFilter) => void;
+  status: StatusFilter;
+  onStatusChange: (s: StatusFilter) => void;
   sort: SortKey;
   onSortChange: (s: SortKey) => void;
   search: string;
@@ -30,9 +38,16 @@ const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: "newest", label: "Newest" },
 ];
 
+const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
+  { value: "all", label: "All statuses" },
+  ...STATUSES.map((s) => ({ value: s, label: STATUS_LABELS[s] })),
+];
+
 export function FilterBar({
   category,
   onCategoryChange,
+  status,
+  onStatusChange,
   sort,
   onSortChange,
   search,
@@ -61,6 +76,20 @@ export function FilterBar({
           }}
           sx={{ maxWidth: { sm: 360 } }}
         />
+        <TextField
+          select
+          size="small"
+          label="Status"
+          value={status}
+          onChange={(e) => onStatusChange(e.target.value as StatusFilter)}
+          sx={{ minWidth: 160 }}
+        >
+          {STATUS_OPTIONS.map((o) => (
+            <MenuItem key={o.value} value={o.value}>
+              {o.label}
+            </MenuItem>
+          ))}
+        </TextField>
         <TextField
           select
           size="small"

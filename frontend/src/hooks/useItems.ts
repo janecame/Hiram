@@ -5,6 +5,7 @@ import {
 } from "@tanstack/react-query";
 import {
   createItem,
+  getItemsByOwner,
   listItems,
   type ListItemsFilters,
 } from "../api/items";
@@ -14,6 +15,16 @@ export function useItems(filters: ListItemsFilters) {
   return useQuery({
     queryKey: ["items", filters],
     queryFn: () => listItems(filters),
+  });
+}
+
+// Key stays under the "items" namespace so useCreateItem's
+// invalidateQueries({ queryKey: ["items"] }) refreshes profile listings too.
+export function useItemsByOwner(owner: string | undefined) {
+  return useQuery({
+    queryKey: ["items", "by-owner", owner],
+    queryFn: () => getItemsByOwner(owner as string),
+    enabled: Boolean(owner),
   });
 }
 

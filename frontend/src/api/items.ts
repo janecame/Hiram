@@ -70,6 +70,12 @@ export async function getItem(id: string): Promise<Item | null> {
   return store.find((item) => item.id === id) ?? null;
 }
 
+/** Items listed by a given owner (display name) — used by the profile page. */
+export async function getItemsByOwner(owner: string): Promise<Item[]> {
+  await delay();
+  return store.filter((item) => item.owner === owner);
+}
+
 export async function createItem(input: NewItemInput): Promise<Item> {
   await delay();
 

@@ -19,6 +19,7 @@ import {
 import { ArrowLeft, ClipboardList, User } from "lucide-react";
 import { Link as RouterLink, useParams } from "react-router-dom";
 import { useItem } from "../hooks/useItem";
+import { useAuth } from "../auth/AuthContext";
 import {
   CATEGORY_LABELS,
   CONDITION_LABELS,
@@ -33,13 +34,10 @@ import { DurationSelector } from "../components/DurationSelector";
 import { ReviewsSection } from "../components/ReviewsSection";
 import { ChatPanel } from "../components/ChatPanel";
 
-// Phase 1 mock: there is no real auth yet. We assume the viewer is a guest so
-// the "Request to Borrow" action surfaces the register/log-in prompt.
-const IS_AUTHENTICATED = false;
-
 export function ItemDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { data: item, isLoading } = useItem(id);
+  const { isAuthenticated, login } = useAuth();
   const [requested, setRequested] = useState(false);
   const [authPromptOpen, setAuthPromptOpen] = useState(false);
 
@@ -47,10 +45,17 @@ export function ItemDetailPage() {
 
   function handleRequest() {
     // Phase 1: borrowing requires an account. Guests get a register/log-in prompt.
-    if (!IS_AUTHENTICATED) {
+    if (!isAuthenticated) {
       setAuthPromptOpen(true);
       return;
     }
+    setRequested(true);
+  }
+
+  // Mock register/log-in from the gate dialog: sign in, then complete the request.
+  function handleAuthAndRequest() {
+    login();
+    setAuthPromptOpen(false);
     setRequested(true);
   }
 
@@ -253,11 +258,11 @@ export function ItemDetailPage() {
           <Button onClick={() => setAuthPromptOpen(false)} color="primary">
             Maybe later
           </Button>
-          {/* TODO: wire to real register/log-in flow (Phase 2 auth) */}
+          {/* Phase 1 mock: logs in as a sample user (Phase 2 = real auth). */}
           <Button
             variant="contained"
             color="secondary"
-            onClick={() => setAuthPromptOpen(false)}
+            onClick={handleAuthAndRequest}
           >
             Register / Log in
           </Button>

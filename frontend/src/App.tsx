@@ -2,10 +2,12 @@ import { Box, CssBaseline, ThemeProvider } from "@mui/material";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { theme } from "./theme/theme";
+import { AuthProvider } from "./auth/AuthContext";
 import { Header } from "./components/Header";
 import { BrowsePage } from "./pages/BrowsePage";
 import { ItemDetailPage } from "./pages/ItemDetailPage";
 import { ListItemPage } from "./pages/ListItemPage";
+import { ProfilePage } from "./pages/ProfilePage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -18,17 +20,20 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <BrowserRouter>
-          <Box sx={{ minHeight: "100dvh", bgcolor: "background.default" }}>
-            <Header />
-            <Routes>
-              <Route path="/" element={<BrowsePage />} />
-              <Route path="/item/:id" element={<ItemDetailPage />} />
-              <Route path="/list" element={<ListItemPage />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </Box>
-        </BrowserRouter>
+        <AuthProvider>
+          <BrowserRouter>
+            <Box sx={{ minHeight: "100dvh", bgcolor: "background.default" }}>
+              <Header />
+              <Routes>
+                <Route path="/" element={<BrowsePage />} />
+                <Route path="/item/:id" element={<ItemDetailPage />} />
+                <Route path="/list" element={<ListItemPage />} />
+                <Route path="/profile/:owner" element={<ProfilePage />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </Box>
+          </BrowserRouter>
+        </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );

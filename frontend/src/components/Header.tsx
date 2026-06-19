@@ -1,10 +1,12 @@
 import { AppBar, Box, Button, Container, Toolbar, Typography } from "@mui/material";
-import { Plus, Package } from "lucide-react";
+import { Plus, Package, LogIn, User } from "lucide-react";
 import { Link as RouterLink, useLocation } from "react-router-dom";
+import { useAuth } from "../auth/AuthContext";
 
 export function Header() {
   const { pathname } = useLocation();
   const onList = pathname === "/list";
+  const { isAuthenticated, currentUser, login, logout } = useAuth();
 
   return (
     <AppBar
@@ -80,6 +82,28 @@ export function Header() {
           >
             List an item
           </Button>
+
+          {/* Phase 1 mock auth control — Phase 2 swaps for a real session menu. */}
+          {isAuthenticated && currentUser ? (
+            <>
+              <Button
+                component={RouterLink}
+                to={`/profile/${encodeURIComponent(currentUser.name)}`}
+                color="primary"
+                startIcon={<User size={18} />}
+                sx={{ fontWeight: pathname.startsWith("/profile") ? 700 : 500 }}
+              >
+                {currentUser.name}
+              </Button>
+              <Button color="primary" onClick={logout}>
+                Log out
+              </Button>
+            </>
+          ) : (
+            <Button color="primary" startIcon={<LogIn size={18} />} onClick={login}>
+              Log in
+            </Button>
+          )}
         </Toolbar>
       </Container>
     </AppBar>

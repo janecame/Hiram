@@ -191,7 +191,7 @@ export function ItemDetailPage() {
 
             <Divider />
 
-            <ReviewsSection rating={item.rating} />
+            <ReviewsSection itemId={item.id} rating={item.rating} />
           </Stack>
         </Box>
       )}

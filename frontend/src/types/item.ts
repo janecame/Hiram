@@ -32,6 +32,8 @@ export interface Item {
   status: ItemStatus;
   /** 0–5 average rating (optional) — new in Phase 1 */
   rating?: number;
+  /** Number of reviews backing the rating (optional) — new in Phase 4 */
+  reviewCount?: number;
   /** Personal requirements the lister sets for borrowers (optional) */
   requirements?: string;
   /** How many identical units the lister has available — new in Phase 2 */

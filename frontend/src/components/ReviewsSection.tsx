@@ -1,39 +1,38 @@
-import { Avatar, Box, Divider, Rating, Stack, Typography } from "@mui/material";
+import {
+  Avatar,
+  Box,
+  CircularProgress,
+  Divider,
+  Rating,
+  Stack,
+  Typography,
+} from "@mui/material";
 import { Star } from "lucide-react";
+import { useReviews } from "../hooks/useReviews";
+import type { Review } from "../types/review";
 
 interface ReviewsSectionProps {
+  /** Item whose reviews are shown. */
+  itemId: string;
   /** 0–5 average rating from the item, if any. */
   rating?: number;
 }
 
-/**
- * Phase 1 MOCK UI — there is no review data model yet.
- * This placeholder list is hard-coded here on purpose (no `data/` file,
- * no new type) and is purely presentational. Real reviews land in a later phase.
- */
-const MOCK_REVIEWS: { id: string; author: string; stars: number; comment: string }[] = [
-  {
-    id: "r1",
-    author: "Maria S.",
-    stars: 5,
-    comment: "Item was exactly as described and the owner was easy to coordinate with. Smooth meetup!",
-  },
-  {
-    id: "r2",
-    author: "Jun P.",
-    stars: 4,
-    comment: "Worked great for my weekend project. A little dusty but cleaned up fine.",
-  },
-  {
-    id: "r3",
-    author: "Liza T.",
-    stars: 5,
-    comment: "Super friendly lender. Would borrow again.",
-  },
-];
+function formatReviewDate(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? iso
+    : d.toLocaleDateString("en-PH", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+}
 
 /** Feedback / reviews block for the item detail page. */
-export function ReviewsSection({ rating }: ReviewsSectionProps) {
+export function ReviewsSection({ itemId, rating }: ReviewsSectionProps) {
+  const { data: reviews, isLoading } = useReviews(itemId);
+
   return (
     <Stack spacing={2}>
       <Stack direction="row" alignItems="center" spacing={1.5}>
@@ -60,34 +59,58 @@ export function ReviewsSection({ rating }: ReviewsSectionProps) {
         )}
       </Stack>
 
-      <Stack spacing={2} divider={<Divider flexItem />}>
-        {MOCK_REVIEWS.map((review) => (
-          <Stack key={review.id} direction="row" spacing={1.5} alignItems="flex-start">
-            <Avatar sx={{ width: 36, height: 36, bgcolor: "primary.main" }}>
-              {review.author.charAt(0)}
-            </Avatar>
-            <Box>
-              <Stack direction="row" alignItems="center" spacing={1}>
-                <Typography variant="subtitle2">{review.author}</Typography>
-                <Rating
-                  value={review.stars}
-                  readOnly
-                  size="small"
-                  icon={<Star size={14} fill="currentColor" />}
-                  emptyIcon={<Star size={14} />}
-                />
-              </Stack>
-              <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                {review.comment}
-              </Typography>
-            </Box>
-          </Stack>
-        ))}
-      </Stack>
-
-      <Typography variant="caption" sx={{ color: "text.secondary" }}>
-        Demo reviews — feedback collection is coming in a later phase.
-      </Typography>
+      {isLoading ? (
+        <Stack alignItems="center" sx={{ py: 3 }}>
+          <CircularProgress color="primary" size={28} />
+        </Stack>
+      ) : !reviews || reviews.length === 0 ? (
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
+          No reviews yet
+        </Typography>
+      ) : (
+        <Stack spacing={2} divider={<Divider flexItem />}>
+          {reviews.map((review: Review) => (
+            <Stack
+              key={review.id}
+              direction="row"
+              spacing={1.5}
+              alignItems="flex-start"
+            >
+              <Avatar sx={{ width: 36, height: 36, bgcolor: "primary.main" }}>
+                {review.reviewerName.charAt(0).toUpperCase()}
+              </Avatar>
+              <Box>
+                <Stack
+                  direction="row"
+                  alignItems="center"
+                  spacing={1}
+                  flexWrap="wrap"
+                  useFlexGap
+                >
+                  <Typography variant="subtitle2">
+                    {review.reviewerName}
+                  </Typography>
+                  <Rating
+                    value={review.rating}
+                    readOnly
+                    size="small"
+                    icon={<Star size={14} fill="currentColor" />}
+                    emptyIcon={<Star size={14} />}
+                  />
+                  <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                    {formatReviewDate(review.createdAt)}
+                  </Typography>
+                </Stack>
+                {review.comment && (
+                  <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                    {review.comment}
+                  </Typography>
+                )}
+              </Box>
+            </Stack>
+          ))}
+        </Stack>
+      )}
     </Stack>
   );
 }

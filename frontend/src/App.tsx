@@ -4,6 +4,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { theme } from "./theme/theme";
 import { AuthProvider } from "./auth/AuthContext";
 import { Header } from "./components/Header";
+import { Footer } from "./components/Footer";
 import { BrowsePage } from "./pages/BrowsePage";
 import { ItemDetailPage } from "./pages/ItemDetailPage";
 import { ListItemPage } from "./pages/ListItemPage";
@@ -22,15 +23,18 @@ export default function App() {
         <CssBaseline />
         <AuthProvider>
           <BrowserRouter>
-            <Box sx={{ minHeight: "100dvh", bgcolor: "background.default" }}>
+            <Box sx={{ minHeight: "100dvh", bgcolor: "background.default", display: "flex", flexDirection: "column" }}>
               <Header />
-              <Routes>
-                <Route path="/" element={<BrowsePage />} />
-                <Route path="/item/:id" element={<ItemDetailPage />} />
-                <Route path="/list" element={<ListItemPage />} />
-                <Route path="/profile/:owner" element={<ProfilePage />} />
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
+              <Box sx={{ flex: 1 }}>
+                <Routes>
+                  <Route path="/" element={<BrowsePage />} />
+                  <Route path="/item/:id" element={<ItemDetailPage />} />
+                  <Route path="/list" element={<ListItemPage />} />
+                  <Route path="/profile/:owner" element={<ProfilePage />} />
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+              </Box>
+              <Footer />
             </Box>
           </BrowserRouter>
         </AuthProvider>

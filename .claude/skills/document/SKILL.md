@@ -5,7 +5,7 @@ Document the task, fix, or modification just completed in this session.
 ## Steps
 
 1. Review the conversation to identify what was just done — the file(s) changed, the problem, and the solution.
-2. Generate a short, descriptive kebab-case filename based on the topic (e.g., `fix-balancesheet-datalist-crash.md`, `feature-dashboard-chart-update.md`). Place the file inside the `.claude/documentation/` folder (create the folder if it does not exist).
+2. Generate a short, descriptive kebab-case filename based on the topic (e.g., `fix-item-card-status-badge.md`, `feature-duration-selector.md`). Place the file inside `.claude/documentation/` (create the folder if it does not exist).
 3. Write the documentation file using this structure:
 
 ```

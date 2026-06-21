@@ -13,21 +13,24 @@ Current routes:
 - `GET /api/items/:id` — 404 with `{ error: "Item not found" }` when missing
 - `POST /api/items` — accepts `NewItemInput` body, generates `id`, `distanceKm`, `createdAt` server-side
 
+## Controller / model pattern
+
+- `routes/` — only wire HTTP verbs to controller methods, no business logic.
+- `controllers/` — handle `req`/`res`; call model methods; never touch the store directly.
+- `models/` — own all data access. In Phase 1 this is the in-memory store; in Phase 2 it becomes SQL queries. Controller signatures do not change between phases.
+
 ## In-memory store
 
-`let items: Item[] = [...MOCK_ITEMS]` is module-level state. `POST` unshifts to the top so newest appear first — same behaviour as the frontend mock. The store resets on server restart; that is expected for the mock phase.
+`ItemModel` in `backend/src/models/item.model.ts` holds `let store: Item[] = [...MOCK_ITEMS]`. `create()` unshifts so newest appear first. Store resets on server restart; expected for the mock phase.
 
 ## Request/response typing
 
 - Type request bodies with `as YourType` after `req.body` — no runtime validation yet (Phase 2 will add Zod on the backend).
-- Always return `res.json(...)` and call `return` after sending a response to avoid "headers already sent" errors.
+- Always `return` after sending a response to avoid "headers already sent" errors.
 
 ## Adding new fields to `Item`
 
-1. Update `backend/src/types/item.ts`
-2. Update `frontend/src/types/item.ts` to match (no shared package — keep them in sync manually)
-3. Update `backend/src/data/mock-items.ts` seed data
-4. Update `frontend/src/data/mock-items.ts` seed data
+See `data-model.md` for the full procedure.
 
 ## CORS
 

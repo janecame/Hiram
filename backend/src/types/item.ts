@@ -34,6 +34,8 @@ export interface Item {
   rating?: number;
   /** Personal requirements the lister sets for borrowers (optional) */
   requirements?: string;
+  /** How many identical units the lister has available — new in Phase 2 */
+  quantity: number;
   /** ISO string */
   createdAt: string;
 }
@@ -44,7 +46,7 @@ export interface Item {
  */
 export type NewItemInput = Omit<
   Item,
-  "id" | "createdAt" | "distanceKm" | "status" | "rating"
+  "id" | "createdAt" | "distanceKm" | "status" | "rating" | "owner"
 >;
 
 export const CATEGORIES: Category[] = [

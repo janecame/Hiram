@@ -8,7 +8,10 @@ import {
   getItemsByOwner,
   listItems,
   type ListItemsFilters,
+  type PaginatedItems,
 } from "../api/items";
+
+export type { PaginatedItems };
 import type { NewItemInput } from "../types/item";
 
 export function useItems(filters: ListItemsFilters) {

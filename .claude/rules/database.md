@@ -15,17 +15,18 @@ These two files must stay in sync. When adding or changing seed items, update bo
 
 | Layer | Choice |
 |---|---|
-| Database | Supabase (PostgreSQL) |
+| Database | Local PostgreSQL (already available) |
+| Driver | `pg` (node-postgres) |
 | Geo queries | PostGIS — `ST_DWithin` for "items within X km" |
-| Auth | Supabase Auth |
-| File storage | Supabase Storage (item images) |
-| Realtime | Supabase Realtime (future messaging) |
+| Auth | JWT-based (no Supabase Auth) |
+| File storage | Local or S3-compatible (Phase 3+) |
+| Realtime | Phase 3+ |
 
 `distanceKm` is currently a random float. When PostGIS lands, it becomes a computed field from `ST_Distance(item.location, user.location)`.
 
 ## Migration workflow (Phase 2)
 
-Migrations will live in `.claude/skills/generate-migration/` (directory placeholder already exists). SQL files go there; apply via Supabase CLI (`supabase db push`) or the dashboard.
+Migration SQL files live in `backend/migrations/`. Apply with `psql` directly or a migration runner such as `node-pg-migrate`. No Supabase CLI.
 
 ## SQL guard
 

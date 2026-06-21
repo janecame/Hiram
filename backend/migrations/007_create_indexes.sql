@@ -1,0 +1,10 @@
+CREATE INDEX idx_items_category  ON public.items (category);
+CREATE INDEX idx_items_status    ON public.items (status);
+CREATE INDEX idx_items_owner     ON public.items (owner_id);
+CREATE INDEX idx_items_created   ON public.items (created_at DESC);
+CREATE INDEX idx_requests_item   ON public.requests (item_id);
+CREATE INDEX idx_requests_borrower ON public.requests (borrower_id);
+CREATE INDEX idx_requests_lister ON public.requests (lister_id);
+CREATE INDEX idx_requests_status ON public.requests (status);
+CREATE INDEX idx_reviews_item    ON public.reviews (item_id);
+CREATE INDEX idx_blocked_item    ON public.blocked_dates (item_id);

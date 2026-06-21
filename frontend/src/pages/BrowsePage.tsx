@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Box, Container, Stack, Typography } from "@mui/material";
+import { Box, Container, Pagination, Stack, Typography } from "@mui/material";
 import { useItems } from "../hooks/useItems";
 import type { SortKey } from "../api/items";
 import {
@@ -27,13 +27,23 @@ export function BrowsePage() {
   const [status, setStatus] = useState<StatusFilter>("all");
   const [sort, setSort] = useState<SortKey>("nearest");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
 
-  const { data: items, isLoading } = useItems({
+  function resetPage() {
+    setPage(1);
+  }
+
+  const { data, isLoading } = useItems({
     category,
     status,
     sort,
     search,
+    page,
   });
+
+  const items = data?.items;
+  const totalPages = data?.totalPages ?? 1;
+  const total = data?.total ?? 0;
 
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>
@@ -48,14 +58,14 @@ export function BrowsePage() {
 
       <FilterBar
         category={category}
-        onCategoryChange={setCategory}
+        onCategoryChange={(v) => { setCategory(v); resetPage(); }}
         status={status}
-        onStatusChange={setStatus}
+        onStatusChange={(v) => { setStatus(v); resetPage(); }}
         sort={sort}
-        onSortChange={setSort}
+        onSortChange={(v) => { setSort(v); resetPage(); }}
         search={search}
-        onSearchChange={setSearch}
-        resultCount={items?.length}
+        onSearchChange={(v) => { setSearch(v); resetPage(); }}
+        resultCount={total}
       />
 
       {isLoading ? (
@@ -65,11 +75,25 @@ export function BrowsePage() {
           ))}
         </Box>
       ) : items && items.length > 0 ? (
-        <Box sx={gridSx}>
-          {items.map((item) => (
-            <ItemCard key={item.id} item={item} />
-          ))}
-        </Box>
+        <>
+          <Box sx={gridSx}>
+            {items.map((item) => (
+              <ItemCard key={item.id} item={item} />
+            ))}
+          </Box>
+          {totalPages > 1 && (
+            <Box sx={{ display: "flex", justifyContent: "center", mt: 5 }}>
+              <Pagination
+                count={totalPages}
+                page={page}
+                onChange={(_, value) => setPage(value)}
+                color="primary"
+                shape="rounded"
+                size="large"
+              />
+            </Box>
+          )}
+        </>
       ) : (
         <EmptyState />
       )}

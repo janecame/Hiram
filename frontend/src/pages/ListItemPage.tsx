@@ -15,6 +15,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import { itemFormSchema, type ItemFormValues } from "../schemas/item-form";
 import { useCreateItem } from "../hooks/useItems";
+import { useAuth } from "../auth/AuthContext";
 import {
   CATEGORIES,
   CATEGORY_LABELS,
@@ -26,6 +27,7 @@ import {
 
 export function ListItemPage() {
   const navigate = useNavigate();
+  const { isAuthenticated, login } = useAuth();
   const { mutateAsync, isPending } = useCreateItem();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -46,11 +48,11 @@ export function ListItemPage() {
       brand: "",
       pricePerDay: undefined,
       pricePerHour: undefined,
+      quantity: 1,
       imageUrl: undefined,
       requirements: "",
       area: "",
       condition: "",
-      owner: "",
     } as unknown as ItemFormValues,
   });
 
@@ -85,16 +87,30 @@ export function ListItemPage() {
       brand: values.brand?.trim() ? values.brand : undefined,
       pricePerDay: values.pricePerDay,
       pricePerHour: values.pricePerHour,
+      quantity: values.quantity,
       imageUrl: values.imageUrl,
       requirements: values.requirements?.trim()
         ? values.requirements
         : undefined,
       area: values.area,
       condition: values.condition as Condition,
-      owner: values.owner,
     });
     navigate("/");
   });
+
+  if (!isAuthenticated) {
+    return (
+      <Container maxWidth="sm" sx={{ py: { xs: 3, md: 5 }, textAlign: "center" }}>
+        <Typography variant="h4" gutterBottom>Log in to list an item</Typography>
+        <Typography color="text.secondary" sx={{ mb: 3 }}>
+          You need an account to post a listing on Hiram.
+        </Typography>
+        <Button variant="contained" color="secondary" size="large" onClick={login}>
+          Log in or sign up
+        </Button>
+      </Container>
+    );
+  }
 
   return (
     <Container maxWidth="sm" sx={{ py: { xs: 3, md: 5 } }}>
@@ -198,6 +214,20 @@ export function ListItemPage() {
             {...register("pricePerHour")}
           />
 
+          <TextField
+            label="Quantity"
+            type="number"
+            fullWidth
+            placeholder="How many identical units do you have?"
+            error={Boolean(errors.quantity)}
+            helperText={
+              errors.quantity?.message ??
+              "How many of this item you can rent out at once."
+            }
+            inputProps={{ min: 1, step: 1 }}
+            {...register("quantity")}
+          />
+
           <Stack spacing={1}>
             <Typography variant="overline" color="text.secondary">
               Photo
@@ -288,15 +318,6 @@ export function ListItemPage() {
                 ))}
               </TextField>
             )}
-          />
-
-          <TextField
-            label="Your name"
-            fullWidth
-            placeholder="Shown to borrowers"
-            error={Boolean(errors.owner)}
-            helperText={errors.owner?.message}
-            {...register("owner")}
           />
 
           <TextField

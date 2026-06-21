@@ -37,6 +37,12 @@ export const itemFormSchema = z.object({
         .optional(),
     )
     .optional(),
+  quantity: z.coerce
+    .number({ invalid_type_error: "Enter a quantity" })
+    .int("Use a whole number")
+    .min(1, "At least 1")
+    .max(99, "That seems too high")
+    .default(1),
   requirements: z
     .string()
     .trim()
@@ -51,11 +57,6 @@ export const itemFormSchema = z.object({
   condition: z.enum(CONDITIONS as [string, ...string[]], {
     errorMap: () => ({ message: "Pick a condition" }),
   }),
-  owner: z
-    .string()
-    .trim()
-    .min(2, "Add your name")
-    .max(40, "Keep your name short"),
 });
 
 export type ItemFormValues = z.infer<typeof itemFormSchema>;

@@ -1,19 +1,4 @@
-import { MOCK_ITEMS } from "../data/mock-items";
 import type { Category, Item, ItemStatus, NewItemInput } from "../types/item";
-
-/**
- * ── The only file the real backend will replace ──
- *
- * Every function returns a Promise with a small artificial delay so that
- * TanStack Query behaves realistically (loading states, refetches, etc.).
- * When the real API lands, swap these bodies for fetch() calls and keep the
- * same signatures — nothing upstream (hooks/pages/components) changes.
- */
-
-// In-memory store seeded from the mock data. `createItem` mutates this.
-let store: Item[] = [...MOCK_ITEMS];
-
-const delay = (ms = 400) => new Promise((r) => setTimeout(r, ms));
 
 export type SortKey = "nearest" | "cheapest" | "newest";
 
@@ -22,74 +7,67 @@ export interface ListItemsFilters {
   status?: ItemStatus | "all";
   search?: string;
   sort?: SortKey;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface PaginatedItems {
+  items: Item[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+function getToken(): string | null {
+  return localStorage.getItem("hiram_token");
+}
+
+function authHeaders(): Record<string, string> {
+  const token = getToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
 export async function listItems(
-  filters: ListItemsFilters = {},
-): Promise<Item[]> {
-  await delay();
+  filters: ListItemsFilters = {}
+): Promise<PaginatedItems> {
+  const params = new URLSearchParams();
+  if (filters.category && filters.category !== "all")
+    params.set("category", filters.category);
+  if (filters.status && filters.status !== "all")
+    params.set("status", filters.status);
+  if (filters.search?.trim()) params.set("search", filters.search.trim());
+  if (filters.sort) params.set("sort", filters.sort);
+  if (filters.page) params.set("page", String(filters.page));
+  if (filters.pageSize) params.set("pageSize", String(filters.pageSize));
 
-  const {
-    category = "all",
-    status = "all",
-    search = "",
-    sort = "nearest",
-  } = filters;
-  const query = search.trim().toLowerCase();
-
-  let result = store.filter((item) => {
-    const matchesCategory = category === "all" || item.category === category;
-    const matchesStatus = status === "all" || item.status === status;
-    const matchesSearch =
-      query === "" ||
-      item.title.toLowerCase().includes(query) ||
-      item.description.toLowerCase().includes(query) ||
-      item.area.toLowerCase().includes(query);
-    return matchesCategory && matchesStatus && matchesSearch;
-  });
-
-  result = [...result].sort((a, b) => {
-    switch (sort) {
-      case "cheapest":
-        return a.pricePerDay - b.pricePerDay;
-      case "newest":
-        return (
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        );
-      case "nearest":
-      default:
-        return a.distanceKm - b.distanceKm;
-    }
-  });
-
-  return result;
+  const res = await fetch(`/api/items?${params}`);
+  if (!res.ok) throw new Error("Failed to fetch items");
+  return res.json() as Promise<PaginatedItems>;
 }
 
 export async function getItem(id: string): Promise<Item | null> {
-  await delay();
-  return store.find((item) => item.id === id) ?? null;
+  const res = await fetch(`/api/items/${id}`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error("Failed to fetch item");
+  return res.json() as Promise<Item>;
 }
 
-/** Items listed by a given owner (display name) — used by the profile page. */
 export async function getItemsByOwner(owner: string): Promise<Item[]> {
-  await delay();
-  return store.filter((item) => item.owner === owner);
+  const params = new URLSearchParams({ owner, pageSize: "100" });
+  const res = await fetch(`/api/items?${params}`);
+  if (!res.ok) throw new Error("Failed to fetch items by owner");
+  const data = (await res.json()) as PaginatedItems;
+  return data.items;
 }
 
 export async function createItem(input: NewItemInput): Promise<Item> {
-  await delay();
-
-  const item: Item = {
-    ...input,
-    id: crypto.randomUUID(),
-    // Faked until real geolocation exists.
-    distanceKm: Math.round((Math.random() * 9 + 0.3) * 10) / 10,
-    // New listings start available; rating accrues from reviews later.
-    status: "available",
-    createdAt: new Date().toISOString(),
-  };
-
-  // Newest first so it surfaces at the top of Browse.
-  store = [item, ...store];
-  return item;
+  const res = await fetch("/api/items", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(input),
+  });
+  if (res.status === 401) throw new Error("Authentication required");
+  if (!res.ok) throw new Error("Failed to create item");
+  return res.json() as Promise<Item>;
 }

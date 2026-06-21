@@ -35,6 +35,20 @@
 - Three routes: `/` (BrowsePage), `/item/:id` (ItemDetailPage), `/list` (ListItemPage).
 - Use `RouterLink` from `react-router-dom` as the `component` prop on MUI components that need navigation — do not nest `<a>` inside MUI interactive elements.
 
+## Design tokens
+
+| Token | Value |
+|---|---|
+| Background (paper) | `#FAF7F2` |
+| Primary (pine green) | `#1C4A3A` |
+| CTA accent (rust) | `#C94A2A` |
+| Highlight (amber) | `#E8A020` |
+| Display font | Archivo |
+| Body font | Inter |
+| Mono / labels | JetBrains Mono |
+
+Tokens are wired in `src/theme/theme.ts`. Never hardcode these hex values in component files.
+
 ## Responsive grid
 
 The Browse grid uses this pattern:

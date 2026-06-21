@@ -18,3 +18,7 @@ npm-debug.log*
 
 # Backend env (contains DB password and JWT secret)
 backend/.env
+sh.exe.stackdump
+bash-log.txt
+edit-log.txt
+settings.local.json

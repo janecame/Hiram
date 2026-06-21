@@ -7,5 +7,6 @@ const router = Router();
 router.get("/", ItemController.list);
 router.get("/:id", ItemController.detail);
 router.post("/", requireAuth, ItemController.create);
+router.patch("/:id", requireAuth, ItemController.update);
 
 export default router;

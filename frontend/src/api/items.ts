@@ -71,3 +71,16 @@ export async function createItem(input: NewItemInput): Promise<Item> {
   if (!res.ok) throw new Error("Failed to create item");
   return res.json() as Promise<Item>;
 }
+
+export async function updateItem(id: string, input: Partial<NewItemInput>): Promise<Item> {
+  const res = await fetch(`/api/items/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(input),
+  });
+  if (res.status === 401) throw new Error("Authentication required — please log out and log back in");
+  if (res.status === 403) throw new Error("You do not own this item");
+  if (res.status === 404) throw new Error("Item not found");
+  if (!res.ok) throw new Error("Failed to update item");
+  return res.json() as Promise<Item>;
+}

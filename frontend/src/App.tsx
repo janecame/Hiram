@@ -10,6 +10,8 @@ import { ItemDetailPage } from "./pages/ItemDetailPage";
 import { ListItemPage } from "./pages/ListItemPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { DashboardPage } from "./pages/DashboardPage";
+import { MyItemsPage } from "./pages/MyItemsPage";
+import { EditItemPage } from "./pages/EditItemPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -33,6 +35,8 @@ export default function App() {
                   <Route path="/list" element={<ListItemPage />} />
                   <Route path="/profile/:owner" element={<ProfilePage />} />
                   <Route path="/dashboard" element={<DashboardPage />} />
+                  <Route path="/my-items" element={<MyItemsPage />} />
+                  <Route path="/item/:id/edit" element={<EditItemPage />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </Box>

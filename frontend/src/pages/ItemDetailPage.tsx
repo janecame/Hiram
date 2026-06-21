@@ -9,8 +9,9 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
-import { ArrowLeft, ClipboardList, User } from "lucide-react";
-import { Link as RouterLink, useParams } from "react-router-dom";
+import { ArrowLeft, ClipboardList, Pencil, User } from "lucide-react";
+import { Link as RouterLink, useNavigate, useParams } from "react-router-dom";
+import { useAuth } from "../auth/AuthContext";
 import { useItem } from "../hooks/useItem";
 import {
   CATEGORY_LABELS,
@@ -29,6 +30,8 @@ import { RequestForm } from "../components/RequestForm";
 export function ItemDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { data: item, isLoading } = useItem(id);
+  const { currentUser } = useAuth();
+  const navigate = useNavigate();
 
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>
@@ -173,21 +176,35 @@ export function ItemDetailPage() {
 
             <Divider />
 
-            <DurationSelector
-              pricePerDay={item.pricePerDay}
-              pricePerHour={item.pricePerHour}
-            />
-
-            {item.status === "available" && (
+            {currentUser?.name === item.owner ? (
+              <Button
+                variant="contained"
+                color="secondary"
+                size="large"
+                startIcon={<Pencil size={18} />}
+                onClick={() => navigate(`/item/${item.id}/edit`)}
+              >
+                Edit listing
+              </Button>
+            ) : (
               <>
+                <DurationSelector
+                  pricePerDay={item.pricePerDay}
+                  pricePerHour={item.pricePerHour}
+                />
+
+                {item.status === "available" && (
+                  <>
+                    <Divider />
+                    <RequestForm item={item} />
+                  </>
+                )}
+
                 <Divider />
-                <RequestForm item={item} />
+
+                <ChatPanel owner={item.owner} />
               </>
             )}
-
-            <Divider />
-
-            <ChatPanel owner={item.owner} />
 
             <Divider />
 

@@ -138,6 +138,58 @@ export const ItemModel = {
     return result.rows[0] ? rowToItem(result.rows[0]) : undefined;
   },
 
+  async update(
+    id: string,
+    input: Partial<NewItemInput>,
+    ownerId: string
+  ): Promise<Item | "not_found" | "forbidden"> {
+    const existing = await pool.query(
+      `SELECT owner_id FROM public.items WHERE id = $1`,
+      [id]
+    );
+    if (!existing.rows[0]) return "not_found";
+    if ((existing.rows[0] as Record<string, unknown>)["owner_id"] !== ownerId)
+      return "forbidden";
+
+    const result = await pool.query(
+      `UPDATE public.items SET
+         title          = COALESCE($2, title),
+         category       = COALESCE($3::item_category, category),
+         condition      = COALESCE($4::item_condition, condition),
+         description    = COALESCE($5, description),
+         brand          = $6,
+         price_per_day  = COALESCE($7, price_per_day),
+         price_per_hour = $8,
+         image_url      = $9,
+         area           = COALESCE($10, area),
+         requirements   = $11,
+         quantity       = COALESCE($12, quantity)
+       WHERE id = $1
+       RETURNING *`,
+      [
+        id,
+        input.title ?? null,
+        input.category ?? null,
+        input.condition ?? null,
+        input.description ?? null,
+        input.brand ?? null,
+        input.pricePerDay ?? null,
+        input.pricePerHour ?? null,
+        input.imageUrl ?? null,
+        input.area ?? null,
+        input.requirements ?? null,
+        input.quantity ?? null,
+      ]
+    );
+    const row = result.rows[0] as Record<string, unknown>;
+    const ownerResult = await pool.query(
+      `SELECT name FROM public.users WHERE id = $1`,
+      [ownerId]
+    );
+    row["owner"] = ownerResult.rows[0]?.["name"] ?? "";
+    return rowToItem(row);
+  },
+
   async create(input: NewItemInput, ownerId: string): Promise<Item> {
     const result = await pool.query(
       `INSERT INTO public.items

@@ -36,4 +36,20 @@ export const ItemController = {
     const newItem = await ItemModel.create(input, ownerId);
     res.status(201).json(newItem);
   },
+
+  async update(req: Request, res: Response): Promise<void> {
+    const id = req.params["id"] as string;
+    const input = req.body as Partial<NewItemInput>;
+    const ownerId = req.user!.id;
+    const result = await ItemModel.update(id, input, ownerId);
+    if (result === "not_found") {
+      res.status(404).json({ error: "Item not found" });
+      return;
+    }
+    if (result === "forbidden") {
+      res.status(403).json({ error: "You do not own this item" });
+      return;
+    }
+    res.json(result);
+  },
 };

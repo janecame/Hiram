@@ -15,8 +15,6 @@ import {
   Rating,
   Skeleton,
   Stack,
-  Tab,
-  Tabs,
   TextField,
   Typography,
 } from "@mui/material";
@@ -32,14 +30,11 @@ import {
 } from "lucide-react";
 import { Link as RouterLink, useParams } from "react-router-dom";
 import { useUserByName } from "../hooks/useUser";
-import { useItemsByOwner } from "../hooks/useItems";
 import { useRequests } from "../hooks/useRequests";
 import { useCreateReview } from "../hooks/useReviews";
 import { useAuth } from "../auth/AuthContext";
 import { ACCOUNT_TYPE_LABELS } from "../types/user";
 import type { BorrowRequest, RequestStatus } from "../types/request";
-import { ItemCard } from "../components/ItemCard";
-import { ItemCardSkeleton } from "../components/ItemCardSkeleton";
 import { EmptyState } from "../components/EmptyState";
 
 const STATUS_CHIP_COLOR: Record<
@@ -67,17 +62,6 @@ function formatRange(start: string, end: string): string {
   return `${fmt(start)} – ${fmt(end)}`;
 }
 
-const gridSx = {
-  display: "grid",
-  gap: 2.5,
-  gridTemplateColumns: {
-    xs: "1fr",
-    sm: "repeat(2, 1fr)",
-    md: "repeat(3, 1fr)",
-    lg: "repeat(4, 1fr)",
-  },
-} as const;
-
 export function ProfilePage() {
   const { owner } = useParams<{ owner: string }>();
   const name = owner ? decodeURIComponent(owner) : undefined;
@@ -85,10 +69,7 @@ export function ProfilePage() {
   const { currentUser } = useAuth();
   const isOwnProfile = Boolean(name && currentUser?.name === name);
 
-  const [tab, setTab] = useState<"items" | "requests">("items");
-
   const { data: user, isLoading: userLoading } = useUserByName(name);
-  const { data: items, isLoading: itemsLoading } = useItemsByOwner(name);
 
   const isBusiness = user?.accountType === "business";
 
@@ -187,45 +168,15 @@ export function ProfilePage() {
         </Box>
       )}
 
-      <Divider sx={{ mb: 3 }} />
-
-      <Tabs
-        value={tab}
-        onChange={(_, v) => setTab(v as "items" | "requests")}
-        sx={{ mb: 3 }}
-      >
-        <Tab value="items" label="Listed Items" />
-        {isOwnProfile && <Tab value="requests" label="My Requests" />}
-      </Tabs>
-
-      {tab === "items" && (
+      {isOwnProfile && (
         <>
+          <Divider sx={{ mb: 3 }} />
           <Typography variant="h5" component="h2" sx={{ mb: 2 }}>
-            Items listed{name ? ` by ${name}` : ""}
+            My Requests
           </Typography>
-
-          {itemsLoading ? (
-            <Box sx={gridSx}>
-              {Array.from({ length: 4 }).map((_, i) => (
-                <ItemCardSkeleton key={i} />
-              ))}
-            </Box>
-          ) : items && items.length > 0 ? (
-            <Box sx={gridSx}>
-              {items.map((item) => (
-                <ItemCard key={item.id} item={item} />
-              ))}
-            </Box>
-          ) : (
-            <EmptyState
-              title="No items listed"
-              message="This person hasn't listed anything for rent yet."
-            />
-          )}
+          <MyRequestsTab />
         </>
       )}
-
-      {tab === "requests" && isOwnProfile && <MyRequestsTab />}
     </Container>
   );
 }

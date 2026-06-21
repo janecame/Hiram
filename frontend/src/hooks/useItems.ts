@@ -5,6 +5,7 @@ import {
 } from "@tanstack/react-query";
 import {
   createItem,
+  updateItem,
   getItemsByOwner,
   listItems,
   type ListItemsFilters,
@@ -37,6 +38,17 @@ export function useCreateItem() {
     mutationFn: (input: NewItemInput) => createItem(input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["items"] });
+    },
+  });
+}
+
+export function useUpdateItem(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: Partial<NewItemInput>) => updateItem(id, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["items"] });
+      queryClient.invalidateQueries({ queryKey: ["item", id] });
     },
   });
 }

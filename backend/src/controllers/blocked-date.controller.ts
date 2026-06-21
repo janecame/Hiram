@@ -3,8 +3,13 @@ import { BlockedDateModel } from "../models/blocked-date.model";
 
 export const BlockedDateController = {
   async list(req: Request, res: Response): Promise<void> {
-    const dates = await BlockedDateModel.findByItem(req.params["id"] as string);
-    res.status(200).json(dates);
+    try {
+      const dates = await BlockedDateModel.findByItem(req.params["id"] as string);
+      res.status(200).json(dates);
+    } catch (err) {
+      console.error("GET /api/items/:id/blocked-dates failed:", err);
+      res.status(500).json({ error: "Failed to load blocked dates" });
+    }
   },
 
   async add(req: Request, res: Response): Promise<void> {
@@ -22,7 +27,8 @@ export const BlockedDateController = {
         res.status(404).json({ error: "Item not found" });
         return;
       }
-      throw err;
+      console.error("POST /api/items/:id/blocked-dates failed:", err);
+      res.status(500).json({ error: "Failed to block date" });
     }
   },
 

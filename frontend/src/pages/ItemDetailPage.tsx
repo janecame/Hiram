@@ -1,16 +1,9 @@
-import { useState } from "react";
 import {
-  Alert,
   Box,
   Button,
   Chip,
   CircularProgress,
   Container,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
   Divider,
   Link,
   Stack,
@@ -19,11 +12,9 @@ import {
 import { ArrowLeft, ClipboardList, User } from "lucide-react";
 import { Link as RouterLink, useParams } from "react-router-dom";
 import { useItem } from "../hooks/useItem";
-import { useAuth } from "../auth/AuthContext";
 import {
   CATEGORY_LABELS,
   CONDITION_LABELS,
-  STATUS_LABELS,
 } from "../types/item";
 import { formatDistance, formatPeso } from "../lib/format";
 import { CategoryBlock } from "../components/CategoryBlock";
@@ -33,31 +24,11 @@ import { StatusBadge } from "../components/StatusBadge";
 import { DurationSelector } from "../components/DurationSelector";
 import { ReviewsSection } from "../components/ReviewsSection";
 import { ChatPanel } from "../components/ChatPanel";
+import { RequestForm } from "../components/RequestForm";
 
 export function ItemDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { data: item, isLoading } = useItem(id);
-  const { isAuthenticated, login } = useAuth();
-  const [requested, setRequested] = useState(false);
-  const [authPromptOpen, setAuthPromptOpen] = useState(false);
-
-  const isAvailable = item?.status === "available";
-
-  function handleRequest() {
-    // Phase 1: borrowing requires an account. Guests get a register/log-in prompt.
-    if (!isAuthenticated) {
-      setAuthPromptOpen(true);
-      return;
-    }
-    setRequested(true);
-  }
-
-  // Mock register/log-in from the gate dialog: sign in, then complete the request.
-  function handleAuthAndRequest() {
-    login();
-    setAuthPromptOpen(false);
-    setRequested(true);
-  }
 
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>
@@ -207,31 +178,11 @@ export function ItemDetailPage() {
               pricePerHour={item.pricePerHour}
             />
 
-            <Divider />
-
-            {requested ? (
-              <Alert severity="success" variant="outlined">
-                Request sent! {item.owner} will be notified. (This is a demo —
-                no real message was sent.)
-              </Alert>
-            ) : (
-              <Stack spacing={1} alignItems="flex-start">
-                <Button
-                  variant="contained"
-                  color="secondary"
-                  size="large"
-                  onClick={handleRequest}
-                  disabled={!isAvailable}
-                >
-                  Request to Borrow
-                </Button>
-                {!isAvailable && (
-                  <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                    This item is {STATUS_LABELS[item.status].toLowerCase()} and
-                    cannot be requested right now.
-                  </Typography>
-                )}
-              </Stack>
+            {item.status === "available" && (
+              <>
+                <Divider />
+                <RequestForm item={item} />
+              </>
             )}
 
             <Divider />
@@ -244,30 +195,6 @@ export function ItemDetailPage() {
           </Stack>
         </Box>
       )}
-
-      {/* Phase 1 mock auth prompt — guests must register/log in to borrow. */}
-      <Dialog open={authPromptOpen} onClose={() => setAuthPromptOpen(false)}>
-        <DialogTitle>Account required</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            You need an account to request an item. Please register or log in to
-            continue. (Authentication is mocked in Phase 1.)
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setAuthPromptOpen(false)} color="primary">
-            Maybe later
-          </Button>
-          {/* Phase 1 mock: logs in as a sample user (Phase 2 = real auth). */}
-          <Button
-            variant="contained"
-            color="secondary"
-            onClick={handleAuthAndRequest}
-          >
-            Register / Log in
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Container>
   );
 }

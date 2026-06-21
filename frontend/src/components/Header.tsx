@@ -1,5 +1,5 @@
 import { AppBar, Box, Button, Container, Toolbar, Typography } from "@mui/material";
-import { Plus, Package, LogIn, User } from "lucide-react";
+import { Plus, Package, LogIn, User, LayoutDashboard } from "lucide-react";
 import { Link as RouterLink, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 
@@ -86,6 +86,15 @@ export function Header() {
           {/* Phase 1 mock auth control — Phase 2 swaps for a real session menu. */}
           {isAuthenticated && currentUser ? (
             <>
+              <Button
+                component={RouterLink}
+                to="/dashboard"
+                color="primary"
+                startIcon={<LayoutDashboard size={18} />}
+                sx={{ fontWeight: pathname === "/dashboard" ? 700 : 500 }}
+              >
+                Dashboard
+              </Button>
               <Button
                 component={RouterLink}
                 to={`/profile/${encodeURIComponent(currentUser.name)}`}

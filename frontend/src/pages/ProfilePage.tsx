@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import {
   Avatar,
   Box,
@@ -6,7 +6,11 @@ import {
   Chip,
   Container,
   Divider,
+  Link,
+  Skeleton,
   Stack,
+  Tab,
+  Tabs,
   Typography,
 } from "@mui/material";
 import {
@@ -22,10 +26,38 @@ import {
 import { Link as RouterLink, useParams } from "react-router-dom";
 import { useUserByName } from "../hooks/useUser";
 import { useItemsByOwner } from "../hooks/useItems";
+import { useRequests } from "../hooks/useRequests";
+import { useAuth } from "../auth/AuthContext";
 import { ACCOUNT_TYPE_LABELS } from "../types/user";
+import type { BorrowRequest, RequestStatus } from "../types/request";
 import { ItemCard } from "../components/ItemCard";
 import { ItemCardSkeleton } from "../components/ItemCardSkeleton";
 import { EmptyState } from "../components/EmptyState";
+
+const STATUS_CHIP_COLOR: Record<
+  RequestStatus,
+  "default" | "success" | "error" | "primary"
+> = {
+  pending: "default",
+  approved: "success",
+  declined: "error",
+  completed: "primary",
+  cancelled: "default",
+};
+
+function formatRange(start: string, end: string): string {
+  const fmt = (iso: string) => {
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime())
+      ? iso
+      : d.toLocaleDateString("en-PH", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        });
+  };
+  return `${fmt(start)} – ${fmt(end)}`;
+}
 
 const gridSx = {
   display: "grid",
@@ -41,6 +73,11 @@ const gridSx = {
 export function ProfilePage() {
   const { owner } = useParams<{ owner: string }>();
   const name = owner ? decodeURIComponent(owner) : undefined;
+
+  const { currentUser } = useAuth();
+  const isOwnProfile = Boolean(name && currentUser?.name === name);
+
+  const [tab, setTab] = useState<"items" | "requests">("items");
 
   const { data: user, isLoading: userLoading } = useUserByName(name);
   const { data: items, isLoading: itemsLoading } = useItemsByOwner(name);
@@ -144,29 +181,140 @@ export function ProfilePage() {
 
       <Divider sx={{ mb: 3 }} />
 
-      <Typography variant="h5" component="h2" sx={{ mb: 2 }}>
-        Items listed{name ? ` by ${name}` : ""}
-      </Typography>
+      <Tabs
+        value={tab}
+        onChange={(_, v) => setTab(v as "items" | "requests")}
+        sx={{ mb: 3 }}
+      >
+        <Tab value="items" label="Listed Items" />
+        {isOwnProfile && <Tab value="requests" label="My Requests" />}
+      </Tabs>
 
-      {itemsLoading ? (
-        <Box sx={gridSx}>
-          {Array.from({ length: 4 }).map((_, i) => (
-            <ItemCardSkeleton key={i} />
-          ))}
-        </Box>
-      ) : items && items.length > 0 ? (
-        <Box sx={gridSx}>
-          {items.map((item) => (
-            <ItemCard key={item.id} item={item} />
-          ))}
-        </Box>
-      ) : (
-        <EmptyState
-          title="No items listed"
-          message="This person hasn't listed anything for rent yet."
-        />
+      {tab === "items" && (
+        <>
+          <Typography variant="h5" component="h2" sx={{ mb: 2 }}>
+            Items listed{name ? ` by ${name}` : ""}
+          </Typography>
+
+          {itemsLoading ? (
+            <Box sx={gridSx}>
+              {Array.from({ length: 4 }).map((_, i) => (
+                <ItemCardSkeleton key={i} />
+              ))}
+            </Box>
+          ) : items && items.length > 0 ? (
+            <Box sx={gridSx}>
+              {items.map((item) => (
+                <ItemCard key={item.id} item={item} />
+              ))}
+            </Box>
+          ) : (
+            <EmptyState
+              title="No items listed"
+              message="This person hasn't listed anything for rent yet."
+            />
+          )}
+        </>
       )}
+
+      {tab === "requests" && isOwnProfile && <MyRequestsTab />}
     </Container>
+  );
+}
+
+function MyRequestsTab() {
+  const { data: requests, isLoading } = useRequests("borrower");
+  // Phase 3: review tracking is local-only; Phase 4 wires the real flow.
+  const [reviewedRequestIds] = useState<Set<string>>(() => new Set());
+
+  if (isLoading) {
+    return (
+      <Stack spacing={2}>
+        {Array.from({ length: 8 }).map((_, i) => (
+          <Skeleton key={i} variant="rounded" height={88} />
+        ))}
+      </Stack>
+    );
+  }
+
+  if (!requests || requests.length === 0) {
+    return (
+      <EmptyState
+        title="No requests yet"
+        message="Items you ask to borrow will appear here."
+      />
+    );
+  }
+
+  return (
+    <Stack spacing={2}>
+      {requests.map((req) => (
+        <RequestHistoryRow
+          key={req.id}
+          req={req}
+          reviewed={reviewedRequestIds.has(req.id)}
+        />
+      ))}
+    </Stack>
+  );
+}
+
+function RequestHistoryRow({
+  req,
+  reviewed,
+}: {
+  req: BorrowRequest;
+  reviewed: boolean;
+}) {
+  return (
+    <Box
+      sx={{
+        border: "1px solid",
+        borderColor: "divider",
+        borderRadius: 3,
+        p: 2.5,
+        display: "flex",
+        flexDirection: { xs: "column", sm: "row" },
+        gap: 2,
+        alignItems: { xs: "flex-start", sm: "center" },
+        justifyContent: "space-between",
+      }}
+    >
+      <Stack spacing={0.75} sx={{ minWidth: 0, flex: 1 }}>
+        <Link
+          component={RouterLink}
+          to={`/item/${req.itemId}`}
+          color="primary"
+          fontWeight={600}
+          variant="h6"
+          underline="hover"
+        >
+          {req.itemTitle}
+        </Link>
+        <Typography variant="overline" sx={{ color: "text.secondary" }}>
+          {formatRange(req.startDate, req.endDate)}
+        </Typography>
+      </Stack>
+      <Stack
+        direction="row"
+        spacing={1.5}
+        alignItems="center"
+        sx={{ flexShrink: 0 }}
+      >
+        <Chip
+          label={req.status}
+          size="small"
+          color={STATUS_CHIP_COLOR[req.status]}
+          variant="outlined"
+          sx={{ textTransform: "capitalize" }}
+        />
+        {req.status === "completed" && (
+          <Button size="small" variant="outlined" disabled>
+            {reviewed ? "Reviewed" : "Leave a Review"}
+          </Button>
+        )}
+      </Stack>
+    </Box>
   );
 }
 

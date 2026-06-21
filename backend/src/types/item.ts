@@ -32,6 +32,8 @@ export interface Item {
   status: ItemStatus;
   /** 0–5 average rating (optional) — new in Phase 1 */
   rating?: number;
+  /** Number of reviews backing the average rating (optional) — computed from reviews */
+  reviewCount?: number;
   /** Personal requirements the lister sets for borrowers (optional) */
   requirements?: string;
   /** How many identical units the lister has available — new in Phase 2 */
@@ -46,7 +48,7 @@ export interface Item {
  */
 export type NewItemInput = Omit<
   Item,
-  "id" | "createdAt" | "distanceKm" | "status" | "rating" | "owner"
+  "id" | "createdAt" | "distanceKm" | "status" | "rating" | "reviewCount" | "owner"
 >;
 
 export const CATEGORIES: Category[] = [

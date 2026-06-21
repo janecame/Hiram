@@ -1,4 +1,12 @@
-import { Box, Card, CardActionArea, Chip, Stack, Typography } from "@mui/material";
+import {
+  Box,
+  Card,
+  CardActionArea,
+  Chip,
+  Rating,
+  Stack,
+  Typography,
+} from "@mui/material";
 import type { ChipProps } from "@mui/material";
 import { MapPin, Star } from "lucide-react";
 import { Link as RouterLink } from "react-router-dom";
@@ -85,21 +93,37 @@ export function ItemCard({ item }: { item: Item }) {
               </Typography>
             </Stack>
 
-            {item.rating !== undefined && (
+            {item.rating !== undefined ? (
               <Stack
                 direction="row"
-                spacing={0.25}
+                spacing={0.5}
                 alignItems="center"
-                sx={{ color: "warning.main", flexShrink: 0 }}
+                sx={{ flexShrink: 0 }}
               >
-                <Star size={14} fill="currentColor" />
-                <Typography
-                  variant="overline"
-                  sx={{ lineHeight: 1, color: "text.primary" }}
-                >
-                  {item.rating.toFixed(1)}
-                </Typography>
+                <Rating
+                  value={item.rating}
+                  precision={0.1}
+                  readOnly
+                  size="small"
+                  icon={<Star size={14} fill="currentColor" />}
+                  emptyIcon={<Star size={14} />}
+                />
+                {item.reviewCount !== undefined && (
+                  <Typography
+                    variant="caption"
+                    sx={{ lineHeight: 1, color: "text.secondary" }}
+                  >
+                    ({item.reviewCount})
+                  </Typography>
+                )}
               </Stack>
+            ) : (
+              <Typography
+                variant="caption"
+                sx={{ color: "text.secondary", flexShrink: 0 }}
+              >
+                No reviews yet
+              </Typography>
             )}
           </Stack>
 

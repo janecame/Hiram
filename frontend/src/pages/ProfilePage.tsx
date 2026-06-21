@@ -1,16 +1,23 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
+  Alert,
   Avatar,
   Box,
   Button,
   Chip,
   Container,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
   Link,
+  Rating,
   Skeleton,
   Stack,
   Tab,
   Tabs,
+  TextField,
   Typography,
 } from "@mui/material";
 import {
@@ -27,6 +34,7 @@ import { Link as RouterLink, useParams } from "react-router-dom";
 import { useUserByName } from "../hooks/useUser";
 import { useItemsByOwner } from "../hooks/useItems";
 import { useRequests } from "../hooks/useRequests";
+import { useCreateReview } from "../hooks/useReviews";
 import { useAuth } from "../auth/AuthContext";
 import { ACCOUNT_TYPE_LABELS } from "../types/user";
 import type { BorrowRequest, RequestStatus } from "../types/request";
@@ -224,8 +232,19 @@ export function ProfilePage() {
 
 function MyRequestsTab() {
   const { data: requests, isLoading } = useRequests("borrower");
-  // Phase 3: review tracking is local-only; Phase 4 wires the real flow.
-  const [reviewedRequestIds] = useState<Set<string>>(() => new Set());
+  const [reviewedRequestIds, setReviewedRequestIds] = useState<Set<string>>(
+    () => new Set()
+  );
+  const [reviewTarget, setReviewTarget] = useState<BorrowRequest | null>(null);
+  const [successMessage, setSuccessMessage] = useState("");
+
+  const markReviewed = (requestId: string) => {
+    setReviewedRequestIds((prev) => {
+      const next = new Set(prev);
+      next.add(requestId);
+      return next;
+    });
+  };
 
   if (isLoading) {
     return (
@@ -248,13 +267,28 @@ function MyRequestsTab() {
 
   return (
     <Stack spacing={2}>
+      {successMessage && (
+        <Alert severity="success" onClose={() => setSuccessMessage("")}>
+          {successMessage}
+        </Alert>
+      )}
       {requests.map((req) => (
         <RequestHistoryRow
           key={req.id}
           req={req}
           reviewed={reviewedRequestIds.has(req.id)}
+          onReview={() => setReviewTarget(req)}
         />
       ))}
+      <ReviewDialog
+        request={reviewTarget}
+        onClose={() => setReviewTarget(null)}
+        onSuccess={(req) => {
+          markReviewed(req.id);
+          setReviewTarget(null);
+          setSuccessMessage(`Thanks for reviewing "${req.itemTitle}"!`);
+        }}
+      />
     </Stack>
   );
 }
@@ -262,9 +296,11 @@ function MyRequestsTab() {
 function RequestHistoryRow({
   req,
   reviewed,
+  onReview,
 }: {
   req: BorrowRequest;
   reviewed: boolean;
+  onReview: () => void;
 }) {
   return (
     <Box
@@ -308,13 +344,102 @@ function RequestHistoryRow({
           variant="outlined"
           sx={{ textTransform: "capitalize" }}
         />
-        {req.status === "completed" && (
-          <Button size="small" variant="outlined" disabled>
-            {reviewed ? "Reviewed" : "Leave a Review"}
-          </Button>
-        )}
+        {req.status === "completed" &&
+          (reviewed ? (
+            <Chip label="Reviewed" size="small" color="primary" variant="filled" />
+          ) : (
+            <Button size="small" variant="outlined" onClick={onReview}>
+              Leave a Review
+            </Button>
+          ))}
       </Stack>
     </Box>
+  );
+}
+
+function ReviewDialog({
+  request,
+  onClose,
+  onSuccess,
+}: {
+  request: BorrowRequest | null;
+  onClose: () => void;
+  onSuccess: (request: BorrowRequest) => void;
+}) {
+  const createReview = useCreateReview();
+  const [rating, setRating] = useState<number | null>(null);
+  const [comment, setComment] = useState("");
+  const [error, setError] = useState("");
+
+  const open = request !== null;
+
+  // Reset local state whenever a new request is opened.
+  useEffect(() => {
+    if (open) {
+      setRating(null);
+      setComment("");
+      setError("");
+    }
+  }, [open, request?.id]);
+
+  const handleSubmit = async () => {
+    if (!request || rating === null) return;
+    setError("");
+    try {
+      await createReview.mutateAsync({
+        itemId: request.itemId,
+        requestId: request.id,
+        rating,
+        comment: comment.trim() || undefined,
+      });
+      onSuccess(request);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Something went wrong");
+    }
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+      <DialogTitle>Rate your experience</DialogTitle>
+      <DialogContent>
+        <Stack spacing={2.5} sx={{ mt: 1 }}>
+          {request && (
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
+              How was borrowing "{request.itemTitle}"?
+            </Typography>
+          )}
+          <Box>
+            <Rating
+              value={rating}
+              onChange={(_, v) => setRating(v)}
+              size="large"
+            />
+          </Box>
+          <TextField
+            label="Share your experience (optional)"
+            multiline
+            minRows={3}
+            fullWidth
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+          />
+          {error && <Alert severity="error">{error}</Alert>}
+        </Stack>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button onClick={onClose} color="inherit">
+          Cancel
+        </Button>
+        <Button
+          variant="contained"
+          color="secondary"
+          disabled={rating === null || createReview.isPending}
+          onClick={() => void handleSubmit()}
+        >
+          {createReview.isPending ? "Submitting…" : "Submit review"}
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 }
 

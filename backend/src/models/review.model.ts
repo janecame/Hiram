@@ -32,7 +32,7 @@ const SELECT_WITH_JOINS = `
 export const ReviewModel = {
   async create(input: NewReviewInput, reviewerId: string): Promise<Review> {
     const requestResult = await pool.query(
-      `SELECT id, item_id, borrower_id, status FROM public.requests WHERE id = $1`,
+      `SELECT id, item_id, borrower_id, lister_id, status FROM public.requests WHERE id = $1`,
       [input.requestId]
     );
     const request = requestResult.rows[0] as Record<string, unknown> | undefined;
@@ -56,14 +56,16 @@ export const ReviewModel = {
     }
 
     const itemId = request["item_id"] as string;
+    // The borrower reviews the rental, so the reviewee is the lister.
+    const revieweeId = request["lister_id"] as string;
     let inserted;
     try {
       inserted = await pool.query(
         `INSERT INTO public.reviews
-           (request_id, reviewer_id, item_id, rating, comment)
-         VALUES ($1, $2, $3, $4, $5)
+           (request_id, reviewer_id, reviewee_id, item_id, rating, comment)
+         VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING id`,
-        [input.requestId, reviewerId, itemId, input.rating, input.comment ?? null]
+        [input.requestId, reviewerId, revieweeId, itemId, input.rating, input.comment ?? null]
       );
     } catch (err) {
       // Defensive: race on the UNIQUE(request_id, reviewer_id) constraint.

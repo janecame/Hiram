@@ -43,6 +43,8 @@ function rowToItem(row: Record<string, unknown>): Item {
     condition: row["condition"] as Item["condition"],
     status: row["status"] as Item["status"],
     rating: row["avg_rating"] ? parseFloat(row["avg_rating"] as string) : undefined,
+    reviewCount:
+      row["review_count"] != null ? Number(row["review_count"]) : undefined,
     requirements: (row["requirements"] as string | null) ?? undefined,
     quantity: row["quantity"] != null ? Number(row["quantity"]) : 1,
     createdAt:

@@ -6,6 +6,7 @@ import itemsRouter from "./routes/items";
 import authRouter from "./routes/auth";
 import requestsRouter from "./routes/requests";
 import blockedDatesRouter from "./routes/blocked-dates";
+import reviewsRouter from "./routes/reviews";
 
 const app = express();
 const PORT = process.env["PORT"] ?? 3001;
@@ -17,6 +18,7 @@ app.use("/api/auth", authRouter);
 app.use("/api/items", itemsRouter);
 app.use("/api/items", blockedDatesRouter);
 app.use("/api/requests", requestsRouter);
+app.use("/api/reviews", reviewsRouter);
 
 // Last-resort error handler so a thrown/forwarded error returns 500 instead of
 // crashing the process. (Controllers handle their own expected errors; this is

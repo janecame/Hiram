@@ -1,6 +1,5 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import {
-  Alert,
   Avatar,
   Box,
   Button,
@@ -10,10 +9,10 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  Divider,
-  Link,
-  Rating,
-  Skeleton,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
   Stack,
   TextField,
   Typography,
@@ -24,54 +23,29 @@ import {
   Building2,
   Mail,
   MapPin,
+  Pencil,
   Phone,
-  ShieldCheck,
   ShieldAlert,
+  ShieldCheck,
 } from "lucide-react";
-import { Link as RouterLink, useParams } from "react-router-dom";
-import { useUserByName } from "../hooks/useUser";
-import { useRequests } from "../hooks/useRequests";
-import { useCreateReview } from "../hooks/useReviews";
+import { Link as RouterLink, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
-import { ACCOUNT_TYPE_LABELS } from "../types/user";
-import type { BorrowRequest, RequestStatus } from "../types/request";
-import { EmptyState } from "../components/EmptyState";
-
-const STATUS_CHIP_COLOR: Record<
-  RequestStatus,
-  "default" | "success" | "error" | "primary"
-> = {
-  pending: "default",
-  approved: "success",
-  declined: "error",
-  completed: "primary",
-  cancelled: "default",
-};
-
-function formatRange(start: string, end: string): string {
-  const fmt = (iso: string) => {
-    const d = new Date(iso);
-    return Number.isNaN(d.getTime())
-      ? iso
-      : d.toLocaleDateString("en-PH", {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-        });
-  };
-  return `${fmt(start)} – ${fmt(end)}`;
-}
+import { useUserByName, useUpdateUser } from "../hooks/useUser";
+import { ACCOUNT_TYPE_LABELS, ACCOUNT_TYPES, type User } from "../types/user";
 
 export function ProfilePage() {
   const { owner } = useParams<{ owner: string }>();
   const name = owner ? decodeURIComponent(owner) : undefined;
-
-  const { currentUser } = useAuth();
-  const isOwnProfile = Boolean(name && currentUser?.name === name);
+  const navigate = useNavigate();
+  const auth = useAuth();
 
   const { data: user, isLoading: userLoading } = useUserByName(name);
+  const updateMutation = useUpdateUser(name ?? "");
+
+  const [editOpen, setEditOpen] = useState(false);
 
   const isBusiness = user?.accountType === "business";
+  const isOwnProfile = Boolean(auth.currentUser && user && auth.currentUser.id === user.id);
 
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>
@@ -101,11 +75,12 @@ export function ProfilePage() {
             fontSize: 28,
           }}
         >
-          {(name ?? "?").charAt(0).toUpperCase()}
+          {(user?.name ?? name ?? "?").charAt(0).toUpperCase()}
         </Avatar>
-        <Stack spacing={0.5}>
+
+        <Stack spacing={0.5} sx={{ flex: 1 }}>
           <Typography variant="h3" component="h1">
-            {name ?? "Unknown user"}
+            {user?.name ?? name ?? "Unknown user"}
           </Typography>
           <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
             {user && (
@@ -125,9 +100,21 @@ export function ProfilePage() {
             )}
           </Stack>
         </Stack>
+
+        {isOwnProfile && (
+          <Button
+            variant="outlined"
+            startIcon={<Pencil size={16} />}
+            size="small"
+            onClick={() => setEditOpen(true)}
+            sx={{ alignSelf: { xs: "flex-start", sm: "center" } }}
+          >
+            Edit Profile
+          </Button>
+        )}
       </Stack>
 
-      {/* Credentials — unverified in Phase 1 */}
+      {/* Credentials & Verifications */}
       {userLoading ? null : user ? (
         <Box
           sx={{
@@ -139,25 +126,28 @@ export function ProfilePage() {
           }}
         >
           <Typography variant="overline" sx={{ color: "text.secondary" }}>
-            Credentials
+            Credentials & Verifications
           </Typography>
           <Stack spacing={1.25} sx={{ mt: 1 }}>
-            <Credential icon={<Mail size={16} />} label="Email" value={user.email} />
-            <Credential icon={<Phone size={16} />} label="Phone" value={user.phone} />
-            <CredentialStatus
-              label="Government ID"
-              submitted={user.idSubmitted}
+            <CredentialRow
+              icon={<Mail size={16} />}
+              label="Email"
+              value={user.email}
+              verified={false}
             />
+            <CredentialRow
+              icon={<Phone size={16} />}
+              label="Phone"
+              value={user.phone}
+              verified={false}
+            />
+            <CredentialDoc label="Government ID" submitted={user.idSubmitted} />
             {isBusiness && (
-              <CredentialStatus
-                label="Business papers"
-                submitted={user.businessDocsSubmitted}
-              />
+              <CredentialDoc label="Business papers" submitted={user.businessDocsSubmitted} />
             )}
           </Stack>
           <Typography variant="caption" sx={{ color: "text.secondary", mt: 1.5, display: "block" }}>
-            Credential verification arrives in Phase 2 — submitted documents are
-            not yet verified.
+            Verification of credentials arrives in Phase 2 — submitted documents are not yet verified.
           </Typography>
         </Box>
       ) : (
@@ -168,240 +158,42 @@ export function ProfilePage() {
         </Box>
       )}
 
-      {isOwnProfile && (
-        <>
-          <Divider sx={{ mb: 3 }} />
-          <Typography variant="h5" component="h2" sx={{ mb: 2 }}>
-            My Requests
-          </Typography>
-          <MyRequestsTab />
-        </>
+      {user && isOwnProfile && (
+        <EditProfileDialog
+          open={editOpen}
+          user={user}
+          isSaving={updateMutation.isPending}
+          error={updateMutation.error?.message}
+          onClose={() => { setEditOpen(false); updateMutation.reset(); }}
+          onSave={(data) => {
+            updateMutation.mutate(data, {
+              onSuccess: (updated) => {
+                auth.updateUser(updated);
+                setEditOpen(false);
+                if (updated.name !== user.name) {
+                  void navigate(`/profile/${encodeURIComponent(updated.name)}`);
+                }
+              },
+            });
+          }}
+        />
       )}
     </Container>
   );
 }
 
-function MyRequestsTab() {
-  const { data: requests, isLoading } = useRequests("borrower");
-  const [reviewedRequestIds, setReviewedRequestIds] = useState<Set<string>>(
-    () => new Set()
-  );
-  const [reviewTarget, setReviewTarget] = useState<BorrowRequest | null>(null);
-  const [successMessage, setSuccessMessage] = useState("");
+// ── Sub-components ──────────────────────────────────────────────────────────
 
-  const markReviewed = (requestId: string) => {
-    setReviewedRequestIds((prev) => {
-      const next = new Set(prev);
-      next.add(requestId);
-      return next;
-    });
-  };
-
-  if (isLoading) {
-    return (
-      <Stack spacing={2}>
-        {Array.from({ length: 8 }).map((_, i) => (
-          <Skeleton key={i} variant="rounded" height={88} />
-        ))}
-      </Stack>
-    );
-  }
-
-  if (!requests || requests.length === 0) {
-    return (
-      <EmptyState
-        title="No requests yet"
-        message="Items you ask to borrow will appear here."
-      />
-    );
-  }
-
-  return (
-    <Stack spacing={2}>
-      {successMessage && (
-        <Alert severity="success" onClose={() => setSuccessMessage("")}>
-          {successMessage}
-        </Alert>
-      )}
-      {requests.map((req) => (
-        <RequestHistoryRow
-          key={req.id}
-          req={req}
-          reviewed={reviewedRequestIds.has(req.id)}
-          onReview={() => setReviewTarget(req)}
-        />
-      ))}
-      <ReviewDialog
-        request={reviewTarget}
-        onClose={() => setReviewTarget(null)}
-        onSuccess={(req) => {
-          markReviewed(req.id);
-          setReviewTarget(null);
-          setSuccessMessage(`Thanks for reviewing "${req.itemTitle}"!`);
-        }}
-      />
-    </Stack>
-  );
-}
-
-function RequestHistoryRow({
-  req,
-  reviewed,
-  onReview,
-}: {
-  req: BorrowRequest;
-  reviewed: boolean;
-  onReview: () => void;
-}) {
-  return (
-    <Box
-      sx={{
-        border: "1px solid",
-        borderColor: "divider",
-        borderRadius: 3,
-        p: 2.5,
-        display: "flex",
-        flexDirection: { xs: "column", sm: "row" },
-        gap: 2,
-        alignItems: { xs: "flex-start", sm: "center" },
-        justifyContent: "space-between",
-      }}
-    >
-      <Stack spacing={0.75} sx={{ minWidth: 0, flex: 1 }}>
-        <Link
-          component={RouterLink}
-          to={`/item/${req.itemId}`}
-          color="primary"
-          fontWeight={600}
-          variant="h6"
-          underline="hover"
-        >
-          {req.itemTitle}
-        </Link>
-        <Typography variant="overline" sx={{ color: "text.secondary" }}>
-          {formatRange(req.startDate, req.endDate)}
-        </Typography>
-      </Stack>
-      <Stack
-        direction="row"
-        spacing={1.5}
-        alignItems="center"
-        sx={{ flexShrink: 0 }}
-      >
-        <Chip
-          label={req.status}
-          size="small"
-          color={STATUS_CHIP_COLOR[req.status]}
-          variant="outlined"
-          sx={{ textTransform: "capitalize" }}
-        />
-        {req.status === "completed" &&
-          (reviewed ? (
-            <Chip label="Reviewed" size="small" color="primary" variant="filled" />
-          ) : (
-            <Button size="small" variant="outlined" onClick={onReview}>
-              Leave a Review
-            </Button>
-          ))}
-      </Stack>
-    </Box>
-  );
-}
-
-function ReviewDialog({
-  request,
-  onClose,
-  onSuccess,
-}: {
-  request: BorrowRequest | null;
-  onClose: () => void;
-  onSuccess: (request: BorrowRequest) => void;
-}) {
-  const createReview = useCreateReview();
-  const [rating, setRating] = useState<number | null>(null);
-  const [comment, setComment] = useState("");
-  const [error, setError] = useState("");
-
-  const open = request !== null;
-
-  // Reset local state whenever a new request is opened.
-  useEffect(() => {
-    if (open) {
-      setRating(null);
-      setComment("");
-      setError("");
-    }
-  }, [open, request?.id]);
-
-  const handleSubmit = async () => {
-    if (!request || rating === null) return;
-    setError("");
-    try {
-      await createReview.mutateAsync({
-        itemId: request.itemId,
-        requestId: request.id,
-        rating,
-        comment: comment.trim() || undefined,
-      });
-      onSuccess(request);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Something went wrong");
-    }
-  };
-
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>Rate your experience</DialogTitle>
-      <DialogContent>
-        <Stack spacing={2.5} sx={{ mt: 1 }}>
-          {request && (
-            <Typography variant="body2" sx={{ color: "text.secondary" }}>
-              How was borrowing "{request.itemTitle}"?
-            </Typography>
-          )}
-          <Box>
-            <Rating
-              value={rating}
-              onChange={(_, v) => setRating(v)}
-              size="large"
-            />
-          </Box>
-          <TextField
-            label="Share your experience (optional)"
-            multiline
-            minRows={3}
-            fullWidth
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-          />
-          {error && <Alert severity="error">{error}</Alert>}
-        </Stack>
-      </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={onClose} color="inherit">
-          Cancel
-        </Button>
-        <Button
-          variant="contained"
-          color="secondary"
-          disabled={rating === null || createReview.isPending}
-          onClick={() => void handleSubmit()}
-        >
-          {createReview.isPending ? "Submitting…" : "Submit review"}
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-}
-
-function Credential({
+function CredentialRow({
   icon,
   label,
   value,
+  verified,
 }: {
   icon: ReactNode;
   label: string;
   value: string;
+  verified: boolean;
 }) {
   return (
     <Stack direction="row" spacing={1.25} alignItems="center">
@@ -409,32 +201,147 @@ function Credential({
       <Typography variant="body2" sx={{ color: "text.secondary", minWidth: 110 }}>
         {label}
       </Typography>
-      <Typography variant="body2">{value}</Typography>
+      <Typography variant="body2" sx={{ flex: 1 }}>
+        {value}
+      </Typography>
+      <VerificationBadge verified={verified} />
     </Stack>
   );
 }
 
-function CredentialStatus({
-  label,
-  submitted,
-}: {
-  label: string;
-  submitted: boolean;
-}) {
+function CredentialDoc({ label, submitted }: { label: string; submitted: boolean }) {
   return (
     <Stack direction="row" spacing={1.25} alignItems="center">
-      <Box sx={{ color: submitted ? "success.main" : "text.disabled", display: "flex" }}>
+      <Box sx={{ color: submitted ? "warning.main" : "text.disabled", display: "flex" }}>
         {submitted ? <ShieldCheck size={16} /> : <ShieldAlert size={16} />}
       </Box>
       <Typography variant="body2" sx={{ color: "text.secondary", minWidth: 110 }}>
         {label}
       </Typography>
-      <Chip
-        label={submitted ? "On file" : "Not submitted"}
-        size="small"
-        color={submitted ? "success" : "default"}
-        variant="outlined"
-      />
+      <Typography variant="body2" sx={{ flex: 1, color: submitted ? "text.primary" : "text.disabled" }}>
+        {submitted ? "On file" : "Not submitted"}
+      </Typography>
+      {submitted ? (
+        <VerificationBadge verified={false} />
+      ) : (
+        <Chip
+          label="Not submitted"
+          size="small"
+          variant="outlined"
+          sx={{ color: "text.disabled", borderColor: "divider" }}
+        />
+      )}
     </Stack>
+  );
+}
+
+function VerificationBadge({ verified }: { verified: boolean }) {
+  return (
+    <Chip
+      icon={verified ? <ShieldCheck size={13} /> : <ShieldAlert size={13} />}
+      label={verified ? "Verified" : "Unverified"}
+      size="small"
+      color={verified ? "success" : "default"}
+      variant={verified ? "filled" : "outlined"}
+      sx={{
+        color: verified ? undefined : "text.disabled",
+        borderColor: verified ? undefined : "divider",
+      }}
+    />
+  );
+}
+
+interface EditProfileDialogProps {
+  open: boolean;
+  user: User;
+  isSaving: boolean;
+  error?: string;
+  onClose: () => void;
+  onSave: (data: Partial<Pick<User, "name" | "email" | "phone" | "address" | "accountType">>) => void;
+}
+
+function EditProfileDialog({ open, user, isSaving, error, onClose, onSave }: EditProfileDialogProps) {
+  const [form, setForm] = useState<User>({ ...user });
+
+  const handleChange = (field: keyof User, value: string) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+      <DialogTitle>
+        <Typography variant="h5" component="span">
+          Edit Profile
+        </Typography>
+      </DialogTitle>
+
+      <DialogContent>
+        <Stack spacing={2.5} sx={{ mt: 1 }}>
+          <TextField
+            label="Name"
+            value={form.name}
+            onChange={(e) => handleChange("name", e.target.value)}
+            fullWidth
+            size="small"
+          />
+          <TextField
+            label="Email"
+            type="email"
+            value={form.email}
+            onChange={(e) => handleChange("email", e.target.value)}
+            fullWidth
+            size="small"
+          />
+          <TextField
+            label="Phone"
+            value={form.phone}
+            onChange={(e) => handleChange("phone", e.target.value)}
+            fullWidth
+            size="small"
+          />
+          <TextField
+            label="Address"
+            value={form.address}
+            onChange={(e) => handleChange("address", e.target.value)}
+            fullWidth
+            size="small"
+          />
+          <FormControl fullWidth size="small">
+            <InputLabel>Account type</InputLabel>
+            <Select
+              label="Account type"
+              value={form.accountType}
+              onChange={(e) => handleChange("accountType", e.target.value)}
+            >
+              {ACCOUNT_TYPES.map((t) => (
+                <MenuItem key={t} value={t}>
+                  {ACCOUNT_TYPE_LABELS[t]}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          {error && (
+            <Typography variant="body2" color="error">
+              {error}
+            </Typography>
+          )}
+        </Stack>
+      </DialogContent>
+
+      <DialogActions sx={{ px: 3, pb: 2.5 }}>
+        <Button onClick={onClose} color="inherit" disabled={isSaving}>
+          Cancel
+        </Button>
+        <Button
+          onClick={() => onSave({ name: form.name, email: form.email, phone: form.phone, address: form.address, accountType: form.accountType })}
+          variant="contained"
+          color="primary"
+          disabled={isSaving}
+        >
+          {isSaving ? "Saving…" : "Save changes"}
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 }

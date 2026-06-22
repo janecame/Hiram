@@ -1,25 +1,36 @@
-import { MOCK_USERS } from "../data/mock-users";
 import type { User } from "../types/user";
 
-/**
- * ── User data layer — the only file the real backend will replace ──
- *
- * Mirrors api/items.ts: async with a small artificial delay so TanStack Query
- * behaves realistically. When real auth lands (Supabase), swap these bodies for
- * fetch() calls and keep the signatures — hooks/pages/components don't change.
- *
- * Profiles are looked up by `name` because items reference their lister via the
- * `owner` display-name string (there are no userIds on items yet — Phase 2).
- */
+const TOKEN_KEY = "hiram_token";
 
-const delay = (ms = 300) => new Promise((r) => setTimeout(r, ms));
-
-export async function getUserByName(name: string): Promise<User | null> {
-  await delay();
-  return MOCK_USERS.find((u) => u.name === name) ?? null;
+function authHeader(): HeadersInit {
+  const token = localStorage.getItem(TOKEN_KEY);
+  return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-export async function getUser(id: string): Promise<User | null> {
-  await delay();
-  return MOCK_USERS.find((u) => u.id === id) ?? null;
+export async function getUserByName(name: string): Promise<User | null> {
+  const res = await fetch(`/api/users/${encodeURIComponent(name)}`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error("Failed to fetch user");
+  return res.json() as Promise<User>;
+}
+
+export async function getUser(_id: string): Promise<User | null> {
+  const res = await fetch("/api/auth/me", { headers: authHeader() });
+  if (!res.ok) return null;
+  return res.json() as Promise<User>;
+}
+
+export async function updateCurrentUser(
+  data: Partial<Pick<User, "name" | "email" | "phone" | "address" | "accountType">>
+): Promise<User> {
+  const res = await fetch("/api/users/me", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...authHeader() },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const body = (await res.json()) as { error?: string };
+    throw new Error(body.error ?? "Failed to update profile");
+  }
+  return res.json() as Promise<User>;
 }

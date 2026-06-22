@@ -1,4 +1,4 @@
-export type RequestStatus = 'pending' | 'approved' | 'declined' | 'cancelled' | 'completed';
+export type RequestStatus = 'pending' | 'approved' | 'declined' | 'cancelled' | 'completed' | 'return_requested';
 
 export interface BorrowRequest {
   id: string;

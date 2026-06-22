@@ -202,7 +202,7 @@ export function ItemDetailPage() {
 
                 <Divider />
 
-                <ChatPanel owner={item.owner} />
+                <ChatPanel owner={item.owner} itemId={item.id} listerId={item.ownerId} />
               </>
             )}
 

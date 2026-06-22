@@ -1,24 +1,36 @@
 import "dotenv/config";
+import { createServer } from "http";
 import express from "express";
 import type { NextFunction, Request, Response } from "express";
 import cors from "cors";
+import { Server } from "socket.io";
+import { initSocket } from "./socket";
 import itemsRouter from "./routes/items";
 import authRouter from "./routes/auth";
+import usersRouter from "./routes/users";
 import requestsRouter from "./routes/requests";
 import blockedDatesRouter from "./routes/blocked-dates";
 import reviewsRouter from "./routes/reviews";
+import notificationsRouter from "./routes/notifications";
+import messagesRouter from "./routes/messages";
 
 const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer, { cors: { origin: "*" } });
+initSocket(io);
 const PORT = process.env["PORT"] ?? 3001;
 
 app.use(cors());
 app.use(express.json());
 
 app.use("/api/auth", authRouter);
+app.use("/api/users", usersRouter);
 app.use("/api/items", itemsRouter);
 app.use("/api/items", blockedDatesRouter);
 app.use("/api/requests", requestsRouter);
 app.use("/api/reviews", reviewsRouter);
+app.use("/api/notifications", notificationsRouter);
+app.use("/api/conversations", messagesRouter);
 
 // Last-resort error handler so a thrown/forwarded error returns 500 instead of
 // crashing the process. (Controllers handle their own expected errors; this is
@@ -36,6 +48,6 @@ process.on("unhandledRejection", (reason) => {
   console.error("Unhandled promise rejection:", reason);
 });
 
-app.listen(PORT, () => {
+httpServer.listen(PORT, () => {
   console.log(`Hiram API running on http://localhost:${PORT}`);
 });

@@ -3,7 +3,8 @@ export type RequestStatus =
   | "approved"
   | "declined"
   | "cancelled"
-  | "completed";
+  | "completed"
+  | "return_requested";
 
 export interface BorrowRequest {
   id: string;

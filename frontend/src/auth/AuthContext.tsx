@@ -59,6 +59,7 @@ interface AuthValue {
   currentUser: User | null;
   login: () => void;
   logout: () => void;
+  updateUser: (u: User) => void;
 }
 
 const AuthContext = createContext<AuthValue | undefined>(undefined);
@@ -105,14 +106,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const updateUser = useCallback((u: User) => setCurrentUser(u), []);
+
   const value = useMemo<AuthValue>(
     () => ({
       isAuthenticated: currentUser !== null,
       currentUser,
       login: openModal,
       logout,
+      updateUser,
     }),
-    [currentUser, openModal, logout]
+    [currentUser, openModal, logout, updateUser]
   );
 
   return (

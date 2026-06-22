@@ -28,6 +28,7 @@ const SORT_CLAUSES: Record<string, string> = {
 function rowToItem(row: Record<string, unknown>): Item {
   return {
     id: row["id"] as string,
+    ownerId: row["owner_id"] as string,
     title: row["title"] as string,
     category: row["category"] as Item["category"],
     description: row["description"] as string,

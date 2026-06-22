@@ -1,6 +1,9 @@
 import type { Request, Response } from "express";
 import { RequestModel } from "../models/request.model";
+import { NotificationModel } from "../models/notification.model";
+import { emitToUser } from "../socket";
 import type { NewRequestInput, RequestStatus } from "../types/request";
+import type { NotificationType } from "../types/notification";
 
 // Postgres CHECK / FK / unique violations mean the client sent bad input —
 // map them to 400 instead of letting the rejection crash the server.
@@ -28,6 +31,13 @@ export const RequestController = {
         req.body as NewRequestInput,
         borrowerId
       );
+      const notif = await NotificationModel.create(
+        newRequest.listerId,
+        'request_received',
+        `${newRequest.borrowerName} wants to borrow your "${newRequest.itemTitle}".`,
+        newRequest.id
+      );
+      emitToUser(newRequest.listerId, 'notification', notif);
       res.status(201).json(newRequest);
     } catch (err) {
       if ((err as { status?: number }).status === 404) {
@@ -63,6 +73,40 @@ export const RequestController = {
         status,
         req.user!.id
       );
+
+      const notifMap: Record<string, { recipient: string; type: NotificationType; message: string }> = {
+        approved: {
+          recipient: updated.borrowerId,
+          type: 'request_approved',
+          message: `Your request for "${updated.itemTitle}" was approved.`,
+        },
+        declined: {
+          recipient: updated.borrowerId,
+          type: 'request_declined',
+          message: `Your request for "${updated.itemTitle}" was declined.`,
+        },
+        cancelled: {
+          recipient: updated.listerId,
+          type: 'request_cancelled',
+          message: `${updated.borrowerName} cancelled their request for "${updated.itemTitle}".`,
+        },
+        return_requested: {
+          recipient: updated.listerId,
+          type: 'return_requested',
+          message: `${updated.borrowerName} has marked "${updated.itemTitle}" as returned. Please confirm.`,
+        },
+        completed: {
+          recipient: updated.borrowerId,
+          type: 'return_confirmed',
+          message: `Your return of "${updated.itemTitle}" was confirmed. Thanks for borrowing!`,
+        },
+      };
+      const notif = notifMap[status];
+      if (notif) {
+        const created = await NotificationModel.create(notif.recipient, notif.type, notif.message, updated.id);
+        emitToUser(notif.recipient, 'notification', created);
+      }
+
       res.status(200).json(updated);
     } catch (err) {
       const errStatus = (err as { status?: number }).status;

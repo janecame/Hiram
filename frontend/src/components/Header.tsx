@@ -3,6 +3,20 @@ import { Plus, Package, LogIn, User, LayoutDashboard, ChevronDown, History, Acti
 import { useState } from "react";
 import { Link as RouterLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { useMarkAllRead, useMarkRead, useNotifications, useUnreadCount } from "../hooks/useNotifications";
+import { useUnreadMessageCount } from "../hooks/useMessages";
+import { useSocket } from "../hooks/useSocket";
+
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} min ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} hr ago`;
+  const days = Math.floor(hours / 24);
+  return days === 1 ? "Yesterday" : `${days} days ago`;
+}
 
 export function Header() {
   const { pathname } = useLocation();
@@ -13,16 +27,23 @@ export function Header() {
   const menuOpen = Boolean(menuAnchor);
   const [notifAnchor, setNotifAnchor] = useState<null | HTMLElement>(null);
 
+  const { data: notifications = [] } = useNotifications();
+  const { data: unreadCount = 0 } = useUnreadCount();
+  const { data: unreadMessages = 0 } = useUnreadMessageCount();
+  const markRead = useMarkRead();
+  const markAllRead = useMarkAllRead();
+  useSocket();
+
   const handleMenuOpen = (e: React.MouseEvent<HTMLElement>) => setMenuAnchor(e.currentTarget);
   const handleMenuClose = () => setMenuAnchor(null);
   const handleNav = (path: string) => { navigate(path); handleMenuClose(); };
   const handleLogout = () => { logout(); handleMenuClose(); };
 
-  const STATIC_NOTIFICATIONS = [
-    { id: 1, text: "Juan accepted your borrow request for the Power Drill.", time: "2 min ago", unread: true },
-    { id: 2, text: "Your listingCamping Tent received a new review.", time: "1 hr ago", unread: true },
-    { id: 3, text: "Maria returned your DSLR Camera. Leave a review!", time: "Yesterday", unread: false },
-  ];
+  const handleNotifClick = (id: string, requestId?: string) => {
+    markRead.mutate(id);
+    if (requestId) navigate("/dashboard");
+    setNotifAnchor(null);
+  };
 
   return (
     <AppBar
@@ -99,11 +120,10 @@ export function Header() {
             List an item
           </Button>
 
-          {/* Static notification and message icons — real data wired in Phase 2 */}
           {isAuthenticated && currentUser && (
             <>
               <IconButton color="primary" size="small" onClick={(e) => setNotifAnchor(e.currentTarget)}>
-                <Badge badgeContent={3} color="error">
+                <Badge badgeContent={unreadCount || undefined} color="error">
                   <Bell size={20} />
                 </Badge>
               </IconButton>
@@ -115,59 +135,92 @@ export function Header() {
                 transformOrigin={{ vertical: "top", horizontal: "right" }}
                 slotProps={{ paper: { sx: { mt: 1, width: 320, borderRadius: 2 } } }}
               >
-                <Box sx={{ px: 2, py: 1.5, borderBottom: "1px solid", borderColor: "divider" }}>
+                <Box sx={{ px: 2, py: 1.5, borderBottom: "1px solid", borderColor: "divider", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <Typography variant="subtitle2" fontWeight={700} color="primary">
                     Notifications
                   </Typography>
+                  {unreadCount > 0 && (
+                    <Typography
+                      variant="caption"
+                      color="secondary"
+                      sx={{ cursor: "pointer", fontWeight: 600 }}
+                      onClick={() => markAllRead.mutate()}
+                    >
+                      Mark all read
+                    </Typography>
+                  )}
                 </Box>
                 <List disablePadding>
-                  {STATIC_NOTIFICATIONS.map((n, i) => (
-                    <Box key={n.id}>
-                      <ListItem
-                        alignItems="flex-start"
-                        sx={{
-                          px: 2,
-                          py: 1.2,
-                          bgcolor: n.unread ? "rgba(28,74,58,0.05)" : "transparent",
-                          cursor: "pointer",
-                          "&:hover": { bgcolor: "action.hover" },
-                        }}
-                      >
-                        {n.unread && (
-                          <Box
-                            sx={{
-                              width: 8, height: 8, borderRadius: "50%",
-                              bgcolor: "error.main", mt: 0.7, mr: 1.2, flexShrink: 0,
-                            }}
+                  {notifications.length === 0 ? (
+                    <ListItem sx={{ px: 2, py: 2 }}>
+                      <ListItemText
+                        primary={
+                          <Typography variant="body2" color="text.secondary" textAlign="center">
+                            No notifications yet
+                          </Typography>
+                        }
+                      />
+                    </ListItem>
+                  ) : (
+                    notifications.map((n, i) => (
+                      <Box key={n.id}>
+                        <ListItem
+                          alignItems="flex-start"
+                          onClick={() => handleNotifClick(n.id, n.requestId)}
+                          sx={{
+                            px: 2,
+                            py: 1.2,
+                            bgcolor: !n.read ? "rgba(28,74,58,0.05)" : "transparent",
+                            cursor: "pointer",
+                            "&:hover": { bgcolor: "action.hover" },
+                          }}
+                        >
+                          {!n.read && (
+                            <Box
+                              sx={{
+                                width: 8, height: 8, borderRadius: "50%",
+                                bgcolor: "error.main", mt: 0.7, mr: 1.2, flexShrink: 0,
+                              }}
+                            />
+                          )}
+                          <ListItemText
+                            primary={
+                              <Typography variant="body2" sx={{ lineHeight: 1.4 }}>
+                                {n.message}
+                              </Typography>
+                            }
+                            secondary={
+                              <Typography variant="caption" color="text.secondary">
+                                {timeAgo(n.createdAt)}
+                              </Typography>
+                            }
+                            sx={{ m: 0 }}
                           />
-                        )}
-                        <ListItemText
-                          primary={
-                            <Typography variant="body2" sx={{ lineHeight: 1.4 }}>
-                              {n.text}
-                            </Typography>
-                          }
-                          secondary={
-                            <Typography variant="caption" color="text.secondary">
-                              {n.time}
-                            </Typography>
-                          }
-                          sx={{ m: 0 }}
-                        />
-                      </ListItem>
-                      {i < STATIC_NOTIFICATIONS.length - 1 && <Divider />}
-                    </Box>
-                  ))}
+                        </ListItem>
+                        {i < notifications.length - 1 && <Divider />}
+                      </Box>
+                    ))
+                  )}
                 </List>
                 <Box sx={{ px: 2, py: 1, borderTop: "1px solid", borderColor: "divider", textAlign: "center" }}>
-                  <Typography variant="caption" color="primary" sx={{ cursor: "pointer", fontWeight: 600 }}>
+                  <Typography
+                    variant="caption"
+                    color="primary"
+                    sx={{ cursor: "pointer", fontWeight: 600 }}
+                    onClick={() => { navigate("/dashboard"); setNotifAnchor(null); }}
+                  >
                     See all notifications
                   </Typography>
                 </Box>
               </Popover>
 
-              <IconButton color="primary" size="small">
-                <Badge badgeContent={2} color="error">
+              <IconButton
+                color="primary"
+                size="small"
+                component={RouterLink}
+                to="/messages"
+              >
+                <Badge badgeContent={unreadMessages || undefined} color="error">
                   <MessageSquare size={20} />
                 </Badge>
               </IconButton>

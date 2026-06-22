@@ -25,7 +25,9 @@ export interface Item {
   /** Faked for now — later computed from PostGIS */
   distanceKm: number;
   area: string;
-  /** Owner display name — becomes a userId later */
+  /** UUID of the owner user */
+  ownerId: string;
+  /** Owner display name */
   owner: string;
   condition: Condition;
   /** Availability state — new in Phase 1 */
@@ -48,7 +50,7 @@ export interface Item {
  */
 export type NewItemInput = Omit<
   Item,
-  "id" | "createdAt" | "distanceKm" | "status" | "rating" | "reviewCount" | "owner"
+  "id" | "createdAt" | "distanceKm" | "status" | "rating" | "reviewCount" | "owner" | "ownerId"
 >;
 
 export const CATEGORIES: Category[] = [

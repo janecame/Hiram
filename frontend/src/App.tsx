@@ -12,6 +12,7 @@ import { ProfilePage } from "./pages/ProfilePage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { MyItemsPage } from "./pages/MyItemsPage";
 import { EditItemPage } from "./pages/EditItemPage";
+import { MessagesPage } from "./pages/MessagesPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -37,6 +38,7 @@ export default function App() {
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/my-items" element={<MyItemsPage />} />
                   <Route path="/item/:id/edit" element={<EditItemPage />} />
+                  <Route path="/messages" element={<MessagesPage />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </Box>

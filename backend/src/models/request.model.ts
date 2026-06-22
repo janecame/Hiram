@@ -107,10 +107,13 @@ export const RequestModel = {
       throw Object.assign(new Error("Request not found"), { status: 404 });
     }
 
-    // Authorization: borrower may only cancel; lister may approve/decline/complete.
+    // Authorization: borrower may cancel, or mark return_requested when approved.
     const isBorrower = existing.borrowerId === actorId;
     const isLister = existing.listerId === actorId;
-    const borrowerAllowed: RequestStatus[] = ["cancelled"];
+    const borrowerAllowed: RequestStatus[] =
+      existing.status === "approved"
+        ? ["cancelled", "return_requested"]
+        : ["cancelled"];
     const listerAllowed: RequestStatus[] = ["approved", "declined", "completed"];
 
     const allowed =

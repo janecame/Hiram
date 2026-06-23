@@ -19,6 +19,7 @@ import { itemFormSchema, type ItemFormValues } from "../schemas/item-form";
 import { useItem } from "../hooks/useItem";
 import { useUpdateItem } from "../hooks/useItems";
 import { useAuth } from "../auth/AuthContext";
+import { uploadImage } from "../api/upload";
 import {
   CATEGORIES,
   CATEGORY_LABELS,
@@ -86,6 +87,7 @@ function EditForm({
   const [imagePreview, setImagePreview] = useState<string | null>(
     defaultValues.imageUrl ?? null
   );
+  const pendingFileRef = useRef<File | null>(null);
 
   const {
     register,
@@ -109,6 +111,7 @@ function EditForm({
     const file = e.target.files?.[0];
     if (!file) return;
     if (imagePreview?.startsWith("blob:")) URL.revokeObjectURL(imagePreview);
+    pendingFileRef.current = file;
     const url = URL.createObjectURL(file);
     setImagePreview(url);
     setValue("imageUrl", url, { shouldValidate: true });
@@ -116,6 +119,7 @@ function EditForm({
 
   const clearImage = () => {
     if (imagePreview?.startsWith("blob:")) URL.revokeObjectURL(imagePreview);
+    pendingFileRef.current = null;
     setImagePreview(null);
     setValue("imageUrl", undefined, { shouldValidate: true });
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -124,6 +128,10 @@ function EditForm({
   const onSubmit = handleSubmit(async (values) => {
     setSubmitError(null);
     try {
+      let imageUrl = values.imageUrl;
+      if (pendingFileRef.current) {
+        imageUrl = await uploadImage(pendingFileRef.current);
+      }
       await mutateAsync({
         title: values.title,
         category: values.category as Category,
@@ -132,7 +140,7 @@ function EditForm({
         pricePerDay: values.pricePerDay,
         pricePerHour: values.pricePerHour,
         quantity: values.quantity,
-        imageUrl: values.imageUrl,
+        imageUrl,
         requirements: values.requirements?.trim() ? values.requirements : undefined,
         area: values.area,
         condition: values.condition as Condition,

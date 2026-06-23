@@ -11,11 +11,11 @@ export async function getConversations(): Promise<Conversation[]> {
   return res.json() as Promise<Conversation[]>;
 }
 
-export async function createConversation(itemId: string, listerId: string): Promise<Conversation> {
+export async function createConversation(listerId: string, itemId?: string | null): Promise<Conversation> {
   const res = await fetch('/api/conversations', {
     method: 'POST',
     headers: authHeaders(),
-    body: JSON.stringify({ itemId, listerId }),
+    body: JSON.stringify({ listerId, itemId: itemId ?? null }),
   });
   if (!res.ok) throw new Error('Failed to create conversation');
   return res.json() as Promise<Conversation>;

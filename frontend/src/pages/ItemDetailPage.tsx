@@ -5,12 +5,14 @@ import {
   CircularProgress,
   Container,
   Divider,
+  IconButton,
   Link,
   Stack,
   Typography,
 } from "@mui/material";
-import { ArrowLeft, ClipboardList, Pencil, User } from "lucide-react";
+import { ArrowLeft, ClipboardList, MessageCircle, Pencil, User } from "lucide-react";
 import { Link as RouterLink, useNavigate, useParams } from "react-router-dom";
+import { useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { useItem } from "../hooks/useItem";
 import {
@@ -22,9 +24,8 @@ import { CategoryBlock } from "../components/CategoryBlock";
 import { StampBadge } from "../components/StampBadge";
 import { EmptyState } from "../components/EmptyState";
 import { StatusBadge } from "../components/StatusBadge";
-import { DurationSelector } from "../components/DurationSelector";
 import { ReviewsSection } from "../components/ReviewsSection";
-import { ChatPanel } from "../components/ChatPanel";
+import { ChatPopup } from "../components/ChatPopup";
 import { RequestForm } from "../components/RequestForm";
 
 export function ItemDetailPage() {
@@ -32,6 +33,7 @@ export function ItemDetailPage() {
   const { data: item, isLoading } = useItem(id);
   const { currentUser } = useAuth();
   const navigate = useNavigate();
+  const [chatOpen, setChatOpen] = useState(false);
 
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>
@@ -73,7 +75,16 @@ export function ItemDetailPage() {
               top: { md: 88 },
             }}
           >
-            <CategoryBlock category={item.category} height={360} iconSize={96} />
+            {item.imageUrl ? (
+              <Box
+                component="img"
+                src={item.imageUrl}
+                alt={item.title}
+                sx={{ display: "block", width: "100%", height: 360, objectFit: "cover", borderRadius: 2 }}
+              />
+            ) : (
+              <CategoryBlock category={item.category} height={360} iconSize={96} />
+            )}
           </Box>
 
           <Stack spacing={2.5}>
@@ -141,7 +152,6 @@ export function ItemDetailPage() {
                 <User size={16} />
                 <Typography variant="body2" color="text.secondary">
                   Listed by{" "}
-                  {/* TODO: wire to ProfilePage (Round 3) */}
                   <Link
                     component={RouterLink}
                     to={`/profile/${encodeURIComponent(item.owner)}`}
@@ -151,6 +161,17 @@ export function ItemDetailPage() {
                     {item.owner}
                   </Link>
                 </Typography>
+                {currentUser?.name !== item.owner && (
+                  <IconButton
+                    size="small"
+                    color="primary"
+                    onClick={() => setChatOpen(true)}
+                    title={`Message ${item.owner}`}
+                    sx={{ ml: 0.5, p: 0.5 }}
+                  >
+                    <MessageCircle size={16} />
+                  </IconButton>
+                )}
               </Stack>
             </Stack>
 
@@ -187,23 +208,12 @@ export function ItemDetailPage() {
                 Edit listing
               </Button>
             ) : (
-              <>
-                <DurationSelector
-                  pricePerDay={item.pricePerDay}
-                  pricePerHour={item.pricePerHour}
-                />
-
-                {item.status === "available" && (
-                  <>
-                    <Divider />
-                    <RequestForm item={item} />
-                  </>
-                )}
-
-                <Divider />
-
-                <ChatPanel owner={item.owner} itemId={item.id} listerId={item.ownerId} />
-              </>
+              item.status === "available" && (
+                <>
+                  <Divider />
+                  <RequestForm item={item} />
+                </>
+              )
             )}
 
             <Divider />
@@ -211,6 +221,16 @@ export function ItemDetailPage() {
             <ReviewsSection itemId={item.id} rating={item.rating} />
           </Stack>
         </Box>
+      )}
+
+      {item && currentUser?.name !== item.owner && (
+        <ChatPopup
+          owner={item.owner}
+          itemId={item.id}
+          listerId={item.ownerId}
+          open={chatOpen}
+          onClose={() => setChatOpen(false)}
+        />
       )}
     </Container>
   );

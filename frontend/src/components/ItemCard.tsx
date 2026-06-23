@@ -46,7 +46,16 @@ export function ItemCard({ item }: { item: Item }) {
         sx={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "stretch" }}
       >
         <Box sx={{ position: "relative" }}>
-          <CategoryBlock category={item.category} />
+          {item.imageUrl ? (
+            <Box
+              component="img"
+              src={item.imageUrl}
+              alt={item.title}
+              sx={{ display: "block", width: "100%", height: 160, objectFit: "cover" }}
+            />
+          ) : (
+            <CategoryBlock category={item.category} />
+          )}
           <Chip
             label={CATEGORY_LABELS[item.category]}
             size="small"

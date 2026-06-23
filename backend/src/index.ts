@@ -13,6 +13,7 @@ import blockedDatesRouter from "./routes/blocked-dates";
 import reviewsRouter from "./routes/reviews";
 import notificationsRouter from "./routes/notifications";
 import messagesRouter from "./routes/messages";
+import uploadRouter from "./routes/upload";
 
 const app = express();
 const httpServer = createServer(app);
@@ -31,6 +32,7 @@ app.use("/api/requests", requestsRouter);
 app.use("/api/reviews", reviewsRouter);
 app.use("/api/notifications", notificationsRouter);
 app.use("/api/conversations", messagesRouter);
+app.use("/api/upload", uploadRouter);
 
 // Last-resort error handler so a thrown/forwarded error returns 500 instead of
 // crashing the process. (Controllers handle their own expected errors; this is

@@ -31,4 +31,14 @@ export const ReviewController = {
       res.status(500).json({ error: "Failed to load reviews" });
     }
   },
+
+  async findByUser(req: Request, res: Response): Promise<void> {
+    try {
+      const reviews = await ReviewModel.findByUser(req.params["userId"] as string);
+      res.status(200).json(reviews);
+    } catch (err) {
+      console.error("GET /api/reviews/user/:userId failed:", err);
+      res.status(500).json({ error: "Failed to load reviews" });
+    }
+  },
 };

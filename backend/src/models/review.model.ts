@@ -1,5 +1,5 @@
 import { pool } from "../db";
-import type { Review, NewReviewInput } from "../types/review";
+import type { Review, NewReviewInput, ReviewType } from "../types/review";
 
 function rowToReview(row: Record<string, unknown>): Review {
   return {
@@ -7,8 +7,10 @@ function rowToReview(row: Record<string, unknown>): Review {
     requestId: row["request_id"] as string,
     reviewerId: row["reviewer_id"] as string,
     reviewerName: row["reviewer_name"] as string,
+    revieweeId: row["reviewee_id"] as string,
     itemId: row["item_id"] as string,
     itemTitle: row["item_title"] as string,
+    reviewType: row["review_type"] as ReviewType,
     rating: Number(row["rating"]),
     comment: (row["comment"] as string | null) ?? undefined,
     createdAt:
@@ -20,8 +22,8 @@ function rowToReview(row: Record<string, unknown>): Review {
 
 // Shared SELECT-with-joins so all methods return identically-shaped rows.
 const SELECT_WITH_JOINS = `
-  SELECT r.id, r.request_id, r.reviewer_id, r.item_id,
-         r.rating, r.comment, r.created_at,
+  SELECT r.id, r.request_id, r.reviewer_id, r.reviewee_id, r.item_id,
+         r.review_type, r.rating, r.comment, r.created_at,
          u.name AS reviewer_name,
          i.title AS item_title
   FROM public.reviews r
@@ -45,9 +47,22 @@ export const ReviewModel = {
         { status: 400 }
       );
     }
-    if (request["borrower_id"] !== reviewerId) {
+
+    const borrowerId = request["borrower_id"] as string;
+    const listerId = request["lister_id"] as string;
+
+    let reviewType: ReviewType;
+    let revieweeId: string;
+    if (reviewerId === borrowerId) {
+      reviewType = 'borrower_to_lister';
+      revieweeId = listerId;
+    } else if (reviewerId === listerId) {
+      reviewType = 'lister_to_borrower';
+      revieweeId = borrowerId;
+    } else {
       throw Object.assign(new Error("Forbidden"), { status: 403 });
     }
+
     if (await this.existsForRequest(input.requestId, reviewerId)) {
       throw Object.assign(
         new Error("You already reviewed this rental"),
@@ -56,16 +71,14 @@ export const ReviewModel = {
     }
 
     const itemId = request["item_id"] as string;
-    // The borrower reviews the rental, so the reviewee is the lister.
-    const revieweeId = request["lister_id"] as string;
     let inserted;
     try {
       inserted = await pool.query(
         `INSERT INTO public.reviews
-           (request_id, reviewer_id, reviewee_id, item_id, rating, comment)
-         VALUES ($1, $2, $3, $4, $5, $6)
+           (request_id, reviewer_id, reviewee_id, item_id, review_type, rating, comment)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
          RETURNING id`,
-        [input.requestId, reviewerId, revieweeId, itemId, input.rating, input.comment ?? null]
+        [input.requestId, reviewerId, revieweeId, itemId, reviewType, input.rating, input.comment ?? null]
       );
     } catch (err) {
       // Defensive: race on the UNIQUE(request_id, reviewer_id) constraint.
@@ -93,6 +106,16 @@ export const ReviewModel = {
        WHERE r.item_id = $1
        ORDER BY r.created_at DESC`,
       [itemId]
+    );
+    return result.rows.map((row) => rowToReview(row as Record<string, unknown>));
+  },
+
+  async findByUser(userId: string): Promise<Review[]> {
+    const result = await pool.query(
+      `${SELECT_WITH_JOINS}
+       WHERE r.reviewee_id = $1
+       ORDER BY r.created_at DESC`,
+      [userId]
     );
     return result.rows.map((row) => rowToReview(row as Record<string, unknown>));
   },

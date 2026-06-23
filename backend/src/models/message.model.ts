@@ -4,8 +4,8 @@ import type { Conversation, Message } from '../types/message';
 function rowToConversation(row: Record<string, unknown>): Conversation {
   return {
     id: row['id'] as string,
-    itemId: row['item_id'] as string,
-    itemTitle: row['item_title'] as string,
+    itemId: (row['item_id'] as string | null) ?? null,
+    itemTitle: (row['item_title'] as string | null) ?? null,
     borrowerId: row['borrower_id'] as string,
     borrowerName: row['borrower_name'] as string,
     listerId: row['lister_id'] as string,
@@ -39,51 +39,73 @@ function rowToMessage(row: Record<string, unknown>): Message {
   };
 }
 
+const CONVERSATION_SELECT = `
+  SELECT
+    c.id, c.item_id, c.borrower_id, c.lister_id, c.created_at,
+    i.title AS item_title,
+    bu.name AS borrower_name,
+    lu.name AS lister_name,
+    (SELECT content FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) AS last_message,
+    (SELECT created_at FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) AS last_message_at
+`;
+
 export const MessageModel = {
   async findOrCreateConversation(
-    itemId: string,
+    itemId: string | null,
     borrowerId: string,
     listerId: string
   ): Promise<Conversation> {
-    await pool.query(
-      `INSERT INTO conversations (item_id, borrower_id, lister_id)
-       VALUES ($1, $2, $3)
-       ON CONFLICT (item_id, borrower_id, lister_id) DO NOTHING`,
-      [itemId, borrowerId, listerId]
-    );
+    if (itemId) {
+      // Item-scoped conversation: unique per (item, borrower, lister)
+      await pool.query(
+        `INSERT INTO conversations (item_id, borrower_id, lister_id)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (item_id, borrower_id, lister_id) WHERE item_id IS NOT NULL DO NOTHING`,
+        [itemId, borrowerId, listerId]
+      );
 
-    const result = await pool.query(
-      `SELECT
-         c.id, c.item_id, c.borrower_id, c.lister_id, c.created_at,
-         i.title AS item_title,
-         bu.name AS borrower_name,
-         lu.name AS lister_name,
-         (SELECT content FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) AS last_message,
-         (SELECT created_at FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) AS last_message_at,
-         (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id AND sender_id != $2 AND read = false) AS unread_count
-       FROM conversations c
-       JOIN items i ON i.id = c.item_id
-       JOIN users bu ON bu.id = c.borrower_id
-       JOIN users lu ON lu.id = c.lister_id
-       WHERE c.item_id = $1 AND c.borrower_id = $2 AND c.lister_id = $3`,
-      [itemId, borrowerId, listerId]
-    );
+      const result = await pool.query(
+        `${CONVERSATION_SELECT},
+           (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id AND sender_id != $2 AND read = false) AS unread_count
+         FROM conversations c
+         LEFT JOIN items i ON i.id = c.item_id
+         JOIN users bu ON bu.id = c.borrower_id
+         JOIN users lu ON lu.id = c.lister_id
+         WHERE c.item_id = $1 AND c.borrower_id = $2 AND c.lister_id = $3`,
+        [itemId, borrowerId, listerId]
+      );
+      return rowToConversation(result.rows[0] as Record<string, unknown>);
+    } else {
+      // Direct message: normalise so smaller UUID is always borrower_id
+      const [userA, userB] = [borrowerId, listerId].sort();
 
-    return rowToConversation(result.rows[0] as Record<string, unknown>);
+      await pool.query(
+        `INSERT INTO conversations (item_id, borrower_id, lister_id)
+         VALUES (NULL, $1, $2)
+         ON CONFLICT (borrower_id, lister_id) WHERE item_id IS NULL DO NOTHING`,
+        [userA, userB]
+      );
+
+      const result = await pool.query(
+        `${CONVERSATION_SELECT},
+           (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id AND sender_id != $3 AND read = false) AS unread_count
+         FROM conversations c
+         LEFT JOIN items i ON i.id = c.item_id
+         JOIN users bu ON bu.id = c.borrower_id
+         JOIN users lu ON lu.id = c.lister_id
+         WHERE c.item_id IS NULL AND c.borrower_id = $1 AND c.lister_id = $2`,
+        [userA, userB, borrowerId]
+      );
+      return rowToConversation(result.rows[0] as Record<string, unknown>);
+    }
   },
 
   async listConversations(userId: string): Promise<Conversation[]> {
     const result = await pool.query(
-      `SELECT
-         c.id, c.item_id, c.borrower_id, c.lister_id, c.created_at,
-         i.title AS item_title,
-         bu.name AS borrower_name,
-         lu.name AS lister_name,
-         (SELECT content FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) AS last_message,
-         (SELECT created_at FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) AS last_message_at,
+      `${CONVERSATION_SELECT},
          (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id AND sender_id != $1 AND read = false) AS unread_count
        FROM conversations c
-       JOIN items i ON i.id = c.item_id
+       LEFT JOIN items i ON i.id = c.item_id
        JOIN users bu ON bu.id = c.borrower_id
        JOIN users lu ON lu.id = c.lister_id
        WHERE c.borrower_id = $1 OR c.lister_id = $1
@@ -95,7 +117,6 @@ export const MessageModel = {
   },
 
   async getMessages(conversationId: string, userId: string): Promise<Message[]> {
-    // Mark messages from other party as read
     await pool.query(
       `UPDATE messages SET read = true
        WHERE conversation_id = $1 AND sender_id != $2 AND read = false`,
@@ -139,16 +160,10 @@ export const MessageModel = {
 
   async getConversationById(conversationId: string, userId: string): Promise<Conversation | null> {
     const result = await pool.query(
-      `SELECT
-         c.id, c.item_id, c.borrower_id, c.lister_id, c.created_at,
-         i.title AS item_title,
-         bu.name AS borrower_name,
-         lu.name AS lister_name,
-         (SELECT content FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) AS last_message,
-         (SELECT created_at FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) AS last_message_at,
+      `${CONVERSATION_SELECT},
          (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id AND sender_id != $2 AND read = false) AS unread_count
        FROM conversations c
-       JOIN items i ON i.id = c.item_id
+       LEFT JOIN items i ON i.id = c.item_id
        JOIN users bu ON bu.id = c.borrower_id
        JOIN users lu ON lu.id = c.lister_id
        WHERE c.id = $1 AND (c.borrower_id = $2 OR c.lister_id = $2)`,

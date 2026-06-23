@@ -1,7 +1,7 @@
 export interface Conversation {
   id: string;
-  itemId: string;
-  itemTitle: string;
+  itemId: string | null;
+  itemTitle: string | null;
   borrowerId: string;
   borrowerName: string;
   listerId: string;

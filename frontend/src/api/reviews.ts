@@ -34,3 +34,9 @@ export async function getReviewsByItem(itemId: string): Promise<Review[]> {
   if (!res.ok) throw new Error("Failed to fetch reviews");
   return res.json() as Promise<Review[]>;
 }
+
+export async function getReviewsByUser(userId: string): Promise<Review[]> {
+  const res = await fetch(`/api/reviews/user/${userId}`);
+  if (!res.ok) throw new Error("Failed to fetch reviews");
+  return res.json() as Promise<Review[]>;
+}

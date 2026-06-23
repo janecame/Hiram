@@ -4,14 +4,17 @@ import {
   Box,
   Button,
   Chip,
+  CircularProgress,
   Container,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  Divider,
   FormControl,
   InputLabel,
   MenuItem,
+  Rating,
   Select,
   Stack,
   TextField,
@@ -23,15 +26,20 @@ import {
   Building2,
   Mail,
   MapPin,
+  MessageCircle,
   Pencil,
   Phone,
   ShieldAlert,
   ShieldCheck,
+  Star,
 } from "lucide-react";
+import { ChatPopup } from "../components/ChatPopup";
 import { Link as RouterLink, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { useUserByName, useUpdateUser } from "../hooks/useUser";
+import { useReviewsByUser } from "../hooks/useReviews";
 import { ACCOUNT_TYPE_LABELS, ACCOUNT_TYPES, type User } from "../types/user";
+import type { Review } from "../types/review";
 
 export function ProfilePage() {
   const { owner } = useParams<{ owner: string }>();
@@ -43,6 +51,7 @@ export function ProfilePage() {
   const updateMutation = useUpdateUser(name ?? "");
 
   const [editOpen, setEditOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
 
   const isBusiness = user?.accountType === "business";
   const isOwnProfile = Boolean(auth.currentUser && user && auth.currentUser.id === user.id);
@@ -101,7 +110,7 @@ export function ProfilePage() {
           </Stack>
         </Stack>
 
-        {isOwnProfile && (
+        {isOwnProfile ? (
           <Button
             variant="outlined"
             startIcon={<Pencil size={16} />}
@@ -110,6 +119,17 @@ export function ProfilePage() {
             sx={{ alignSelf: { xs: "flex-start", sm: "center" } }}
           >
             Edit Profile
+          </Button>
+        ) : user && (
+          <Button
+            variant="outlined"
+            color="primary"
+            startIcon={<MessageCircle size={16} />}
+            size="small"
+            onClick={() => setChatOpen(true)}
+            sx={{ alignSelf: { xs: "flex-start", sm: "center" } }}
+          >
+            Message
           </Button>
         )}
       </Stack>
@@ -158,6 +178,8 @@ export function ProfilePage() {
         </Box>
       )}
 
+      {user && <BorrowerRatingsSection userId={user.id} />}
+
       {user && isOwnProfile && (
         <EditProfileDialog
           open={editOpen}
@@ -178,11 +200,113 @@ export function ProfilePage() {
           }}
         />
       )}
+
+      {user && !isOwnProfile && (
+        <ChatPopup
+          owner={user.name}
+          listerId={user.id}
+          open={chatOpen}
+          onClose={() => setChatOpen(false)}
+        />
+      )}
     </Container>
   );
 }
 
 // ── Sub-components ──────────────────────────────────────────────────────────
+
+function formatReviewDate(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? iso
+    : d.toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function BorrowerRatingsSection({ userId }: { userId: string }) {
+  const { data: allReviews, isLoading } = useReviewsByUser(userId);
+  const reviews = (allReviews ?? []).filter((r: Review) => r.reviewType === "lister_to_borrower");
+
+  const avg =
+    reviews.length > 0
+      ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+      : null;
+
+  return (
+    <Box
+      sx={{
+        border: "1px solid",
+        borderColor: "divider",
+        borderRadius: 3,
+        p: 2.5,
+        mb: 4,
+      }}
+    >
+      <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 1.5 }}>
+        <Typography variant="overline" sx={{ color: "text.secondary" }}>
+          Borrower Rating
+        </Typography>
+        {avg !== null && (
+          <Stack direction="row" alignItems="center" spacing={0.5}>
+            <Rating
+              value={avg}
+              precision={0.1}
+              readOnly
+              size="small"
+              icon={<Star size={14} fill="currentColor" />}
+              emptyIcon={<Star size={14} />}
+            />
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
+              {avg.toFixed(1)} ({reviews.length})
+            </Typography>
+          </Stack>
+        )}
+      </Stack>
+
+      {isLoading ? (
+        <Stack alignItems="center" sx={{ py: 2 }}>
+          <CircularProgress size={24} color="primary" />
+        </Stack>
+      ) : reviews.length === 0 ? (
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
+          No borrower ratings yet.
+        </Typography>
+      ) : (
+        <Stack spacing={2} divider={<Divider flexItem />}>
+          {reviews.map((review: Review) => (
+            <Stack key={review.id} direction="row" spacing={1.5} alignItems="flex-start">
+              <Avatar sx={{ width: 32, height: 32, bgcolor: "primary.main", fontSize: 14 }}>
+                {review.reviewerName.charAt(0).toUpperCase()}
+              </Avatar>
+              <Box>
+                <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap" useFlexGap>
+                  <Typography variant="subtitle2">{review.reviewerName}</Typography>
+                  <Rating
+                    value={review.rating}
+                    readOnly
+                    size="small"
+                    icon={<Star size={13} fill="currentColor" />}
+                    emptyIcon={<Star size={13} />}
+                  />
+                  <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                    {formatReviewDate(review.createdAt)}
+                  </Typography>
+                </Stack>
+                <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                  for "{review.itemTitle}"
+                </Typography>
+                {review.comment && (
+                  <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.5 }}>
+                    {review.comment}
+                  </Typography>
+                )}
+              </Box>
+            </Stack>
+          ))}
+        </Stack>
+      )}
+    </Box>
+  );
+}
 
 function CredentialRow({
   icon,

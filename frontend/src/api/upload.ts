@@ -1,0 +1,34 @@
+function getToken(): string | null {
+  return localStorage.getItem("hiram_token");
+}
+
+export async function uploadImage(file: File): Promise<string> {
+  const token = getToken();
+  if (!token) throw new Error("Authentication required");
+
+  const presignRes = await fetch("/api/upload/presign", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ filename: file.name, contentType: file.type }),
+  });
+
+  if (!presignRes.ok) throw new Error("Failed to get upload URL");
+
+  const { uploadUrl, publicUrl } = (await presignRes.json()) as {
+    uploadUrl: string;
+    publicUrl: string;
+  };
+
+  const uploadRes = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: { "Content-Type": file.type },
+    body: file,
+  });
+
+  if (!uploadRes.ok) throw new Error("Failed to upload image to S3");
+
+  return publicUrl;
+}

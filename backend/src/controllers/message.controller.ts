@@ -16,9 +16,9 @@ export const MessageController = {
 
   async findOrCreate(req: Request, res: Response): Promise<void> {
     try {
-      const { itemId, listerId } = req.body as NewConversationInput;
+      const { itemId = null, listerId } = req.body as NewConversationInput;
       const borrowerId = req.user!.id;
-      const conversation = await MessageModel.findOrCreateConversation(itemId, borrowerId, listerId);
+      const conversation = await MessageModel.findOrCreateConversation(itemId ?? null, borrowerId, listerId);
       res.status(201).json(conversation);
     } catch (err) {
       console.error("POST /api/conversations failed:", err);

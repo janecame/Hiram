@@ -3,7 +3,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { createReview, getReviewsByItem } from "../api/reviews";
+import { createReview, getReviewsByItem, getReviewsByUser } from "../api/reviews";
 import type { NewReviewInput } from "../types/review";
 
 export function useReviews(itemId: string) {
@@ -11,6 +11,14 @@ export function useReviews(itemId: string) {
     queryKey: ["reviews", itemId],
     queryFn: () => getReviewsByItem(itemId),
     enabled: Boolean(itemId),
+  });
+}
+
+export function useReviewsByUser(userId: string) {
+  return useQuery({
+    queryKey: ["reviews", "user", userId],
+    queryFn: () => getReviewsByUser(userId),
+    enabled: Boolean(userId),
   });
 }
 

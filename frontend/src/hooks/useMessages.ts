@@ -37,8 +37,8 @@ export function useUnreadMessageCount() {
 export function useCreateConversation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ itemId, listerId }: { itemId: string; listerId: string }) =>
-      createConversation(itemId, listerId),
+    mutationFn: ({ listerId, itemId }: { listerId: string; itemId?: string | null }) =>
+      createConversation(listerId, itemId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['conversations'] });
     },

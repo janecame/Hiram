@@ -1,30 +1,38 @@
+﻿import { useEffect, useState } from "react";
 import {
   Alert,
   Box,
   Button,
   Chip,
   Container,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
+  Rating,
   Skeleton,
   Stack,
+  TextField,
   Typography,
 } from "@mui/material";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { useRequests, useUpdateRequestStatus } from "../hooks/useRequests";
+import { useCreateReview, useReviewsByUser } from "../hooks/useReviews";
 import type { BorrowRequest } from "../types/request";
 import { EmptyState } from "../components/EmptyState";
 
 function formatRange(start: string, end: string): string {
   const fmt = (iso: string) => {
     const d = new Date(iso);
-    return Number.isNaN(d.getTime())
-      ? iso
-      : d.toLocaleDateString("en-PH", {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-        });
+    if (Number.isNaN(d.getTime())) return iso;
+    const opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric", year: "numeric" };
+    if (iso.includes("T")) {
+      opts.hour = "numeric";
+      opts.minute = "2-digit";
+    }
+    return d.toLocaleString("en-PH", opts);
   };
   return `${fmt(start)} – ${fmt(end)}`;
 }
@@ -33,11 +41,23 @@ export function DashboardPage() {
   const { isAuthenticated } = useAuth();
   const { data: requests, isLoading } = useRequests("lister");
   const updateStatus = useUpdateRequestStatus();
+  const [ratedRequestIds, setRatedRequestIds] = useState<Set<string>>(() => new Set());
+  const [reviewTarget, setReviewTarget] = useState<BorrowRequest | null>(null);
+  const [successMessage, setSuccessMessage] = useState("");
+
+  const markRated = (requestId: string) => {
+    setRatedRequestIds((prev) => {
+      const next = new Set(prev);
+      next.add(requestId);
+      return next;
+    });
+  };
 
   if (!isAuthenticated) return <Navigate to="/" replace />;
 
   const pending = (requests ?? []).filter((r) => r.status === "pending");
   const active = (requests ?? []).filter((r) => r.status === "approved");
+  const completed = (requests ?? []).filter((r) => r.status === "completed");
 
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>
@@ -63,7 +83,7 @@ export function DashboardPage() {
         <Stack spacing={2}>
           {pending.map((req) => (
             <RequestRow key={req.id}>
-              <RequestDetails req={req} showMessage />
+              <RequestDetails req={req} showMessage showBorrowerRating />
               <Stack
                 direction="row"
                 spacing={1}
@@ -134,11 +154,63 @@ export function DashboardPage() {
         </Stack>
       )}
 
+      <Divider sx={{ my: 4 }} />
+
+      {/* Completed Rentals */}
+      <Typography variant="h5" component="h2" sx={{ mb: 2 }}>
+        Completed Rentals
+      </Typography>
+      {isLoading ? (
+        <LoadingRows />
+      ) : completed.length === 0 ? (
+        <EmptyState
+          title="No completed rentals yet"
+          message="Rentals you mark as returned will appear here."
+        />
+      ) : (
+        <Stack spacing={2}>
+          {completed.map((req) => (
+            <RequestRow key={req.id}>
+              <RequestDetails req={req} />
+              <Stack sx={{ flexShrink: 0 }} justifyContent="center">
+                {ratedRequestIds.has(req.id) ? (
+                  <Chip label="Rated" size="small" color="primary" variant="filled" />
+                ) : (
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() => setReviewTarget(req)}
+                  >
+                    Rate Borrower
+                  </Button>
+                )}
+              </Stack>
+            </RequestRow>
+          ))}
+        </Stack>
+      )}
+
+      {successMessage && (
+        <Alert severity="success" sx={{ mt: 3 }} onClose={() => setSuccessMessage("")}>
+          {successMessage}
+        </Alert>
+      )}
+
       {updateStatus.isError && (
         <Alert severity="error" variant="outlined" sx={{ mt: 3 }}>
           Could not update the request. Please try again.
         </Alert>
       )}
+
+      <RateBorrowerDialog
+        request={reviewTarget}
+        onClose={() => setReviewTarget(null)}
+        onSuccess={(req) => {
+          markRated(req.id);
+          setReviewTarget(null);
+          setSuccessMessage(`You rated ${req.borrowerName} for "${req.itemTitle}".`);
+        }}
+      />
     </Container>
   );
 }
@@ -163,21 +235,50 @@ function RequestRow({ children }: { children: React.ReactNode }) {
   );
 }
 
+function BorrowerRatingBadge({ borrowerId }: { borrowerId: string }) {
+  const { data: reviews } = useReviewsByUser(borrowerId);
+  const listerReviews = (reviews ?? []).filter((r) => r.reviewType === "lister_to_borrower");
+
+  if (listerReviews.length === 0) {
+    return (
+      <Typography variant="caption" sx={{ color: "text.disabled" }}>
+        No ratings yet
+      </Typography>
+    );
+  }
+
+  const avg = listerReviews.reduce((sum, r) => sum + r.rating, 0) / listerReviews.length;
+
+  return (
+    <Stack direction="row" spacing={0.5} alignItems="center">
+      <Rating value={avg} readOnly size="small" precision={0.5} />
+      <Typography variant="caption" sx={{ color: "text.secondary" }}>
+        {avg.toFixed(1)} ({listerReviews.length})
+      </Typography>
+    </Stack>
+  );
+}
+
 function RequestDetails({
   req,
   showMessage = false,
+  showBorrowerRating = false,
 }: {
   req: BorrowRequest;
   showMessage?: boolean;
+  showBorrowerRating?: boolean;
 }) {
   return (
     <Stack spacing={0.75} sx={{ minWidth: 0, flex: 1 }}>
       <Typography variant="h6" component="h3" sx={{ lineHeight: 1.2 }}>
         {req.itemTitle}
       </Typography>
-      <Typography variant="body2" sx={{ color: "text.secondary" }}>
-        Borrower: {req.borrowerName}
-      </Typography>
+      <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap>
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
+          Borrower: {req.borrowerName}
+        </Typography>
+        {showBorrowerRating && <BorrowerRatingBadge borrowerId={req.borrowerId} />}
+      </Stack>
       <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap>
         <Typography variant="overline" sx={{ color: "text.secondary" }}>
           {formatRange(req.startDate, req.endDate)}
@@ -199,7 +300,7 @@ function RequestDetails({
             whiteSpace: "nowrap",
           }}
         >
-          “{req.message}”
+          "{req.message}"
         </Typography>
       )}
     </Stack>
@@ -213,5 +314,90 @@ function LoadingRows() {
         <Skeleton key={i} variant="rounded" height={96} />
       ))}
     </Stack>
+  );
+}
+
+function RateBorrowerDialog({
+  request,
+  onClose,
+  onSuccess,
+}: {
+  request: BorrowRequest | null;
+  onClose: () => void;
+  onSuccess: (request: BorrowRequest) => void;
+}) {
+  const createReview = useCreateReview();
+  const [rating, setRating] = useState<number | null>(null);
+  const [comment, setComment] = useState("");
+  const [error, setError] = useState("");
+
+  const open = request !== null;
+
+  useEffect(() => {
+    if (open) {
+      setRating(null);
+      setComment("");
+      setError("");
+    }
+  }, [open, request?.id]);
+
+  const handleSubmit = async () => {
+    if (!request || rating === null) return;
+    setError("");
+    try {
+      await createReview.mutateAsync({
+        itemId: request.itemId,
+        requestId: request.id,
+        rating,
+        comment: comment.trim() || undefined,
+      });
+      onSuccess(request);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Something went wrong");
+    }
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+      <DialogTitle>Rate this borrower</DialogTitle>
+      <DialogContent>
+        <Stack spacing={2.5} sx={{ mt: 1 }}>
+          {request && (
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
+              How was {request.borrowerName} as a borrower for "{request.itemTitle}"?
+            </Typography>
+          )}
+          <Box>
+            <Rating
+              value={rating}
+              onChange={(_, v) => setRating(v)}
+              size="large"
+            />
+          </Box>
+          <TextField
+            label="Share your experience (optional)"
+            multiline
+            minRows={3}
+            fullWidth
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+          />
+          {error && <Alert severity="error">{error}</Alert>}
+        </Stack>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button onClick={onClose} color="inherit">
+          Cancel
+        </Button>
+        <Button
+          variant="contained"
+          color="secondary"
+          disabled={rating === null || createReview.isPending}
+          onClick={() => void handleSubmit()}
+        >
+          {createReview.isPending ? "Submitting…" : "Submit rating"}
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 }

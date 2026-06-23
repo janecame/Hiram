@@ -553,13 +553,13 @@ Each worktree agent must commit with descriptive messages following this pattern
 
 ## What is explicitly out of scope for this plan
 
-- WebSocket / real-time chat
-- PostGIS / real distance calculation
-- PayMongo payment integration
-- Damage claims
-- Admin tooling
-- Credential verification
-- Image upload service
-- Mutual reviews (lister rating borrower)
+✅- WebSocket / real-time chat
+❌- PostGIS / real distance calculation Implment map here
+❌- PayMongo payment integration
+❌- Damage claims
+❌- Admin tooling
+❌- Credential verification
+❌- Image upload service
+✅- Mutual reviews (lister rating borrower)
 
 Do not implement any of the above even if it seems natural to add them.

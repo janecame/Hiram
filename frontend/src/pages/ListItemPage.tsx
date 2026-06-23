@@ -16,6 +16,7 @@ import { Link as RouterLink, useNavigate } from "react-router-dom";
 import { itemFormSchema, type ItemFormValues } from "../schemas/item-form";
 import { useCreateItem } from "../hooks/useItems";
 import { useAuth } from "../auth/AuthContext";
+import { uploadImage } from "../api/upload";
 import {
   CATEGORIES,
   CATEGORY_LABELS,
@@ -32,6 +33,7 @@ export function ListItemPage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const pendingFileRef = useRef<File | null>(null);
 
   const {
     register,
@@ -67,6 +69,7 @@ export function ListItemPage() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (imagePreview) URL.revokeObjectURL(imagePreview);
+    pendingFileRef.current = file;
     const url = URL.createObjectURL(file);
     setImagePreview(url);
     setValue("imageUrl", url, { shouldValidate: true });
@@ -74,12 +77,17 @@ export function ListItemPage() {
 
   const clearImage = () => {
     if (imagePreview) URL.revokeObjectURL(imagePreview);
+    pendingFileRef.current = null;
     setImagePreview(null);
     setValue("imageUrl", undefined, { shouldValidate: true });
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const onSubmit = handleSubmit(async (values) => {
+    let imageUrl = values.imageUrl;
+    if (pendingFileRef.current) {
+      imageUrl = await uploadImage(pendingFileRef.current);
+    }
     await mutateAsync({
       title: values.title,
       category: values.category as Category,
@@ -88,7 +96,7 @@ export function ListItemPage() {
       pricePerDay: values.pricePerDay,
       pricePerHour: values.pricePerHour,
       quantity: values.quantity,
-      imageUrl: values.imageUrl,
+      imageUrl,
       requirements: values.requirements?.trim()
         ? values.requirements
         : undefined,

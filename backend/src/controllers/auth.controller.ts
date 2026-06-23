@@ -27,9 +27,11 @@ export const AuthController = {
 
     const passwordHash = await bcrypt.hash(password, 10);
     const user = await UserModel.create({ name, email, passwordHash, accountType });
-    const token = jwt.sign({ id: user.id, email: user.email, name: user.name }, JWT_SECRET, {
-      expiresIn: TOKEN_TTL,
-    });
+    const token = jwt.sign(
+      { id: user.id, email: user.email, name: user.name, isAdmin: user.isAdmin },
+      JWT_SECRET,
+      { expiresIn: TOKEN_TTL }
+    );
 
     res.status(201).json({ token, user });
   },
@@ -49,7 +51,7 @@ export const AuthController = {
     }
 
     const token = jwt.sign(
-      { id: record.id, email: record.email, name: record.name },
+      { id: record.id, email: record.email, name: record.name, isAdmin: record.isAdmin },
       JWT_SECRET,
       { expiresIn: TOKEN_TTL }
     );

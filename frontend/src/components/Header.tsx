@@ -1,5 +1,5 @@
 import { AppBar, Badge, Box, Button, Container, Divider, IconButton, List, ListItem, ListItemText, Menu, MenuItem, Popover, Toolbar, Typography } from "@mui/material";
-import { Plus, Package, LogIn, User, LayoutDashboard, ChevronDown, History, Activity, Bell, MessageSquare, List as ListIcon } from "lucide-react";
+import { Plus, Package, LogIn, User, LayoutDashboard, ChevronDown, History, Activity, Bell, MessageSquare, List as ListIcon, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { Link as RouterLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
@@ -267,6 +267,12 @@ export function Header() {
                   <Activity size={16} style={{ marginRight: 10 }} />
                   Activities
                 </MenuItem>
+                {currentUser.isAdmin && (
+                  <MenuItem onClick={() => handleNav("/admin")}>
+                    <ShieldCheck size={16} style={{ marginRight: 10 }} />
+                    Admin Panel
+                  </MenuItem>
+                )}
                 <Divider />
                 <MenuItem onClick={handleLogout} sx={{ color: "error.main" }}>
                   Log out

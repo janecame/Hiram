@@ -32,6 +32,7 @@ function loadStoredUser(): User | null {
       id: string;
       email: string;
       name: string;
+      isAdmin?: boolean;
       exp: number;
     };
     if (payload.exp * 1000 < Date.now()) {
@@ -47,6 +48,7 @@ function loadStoredUser(): User | null {
       address: "",
       idSubmitted: false,
       businessDocsSubmitted: false,
+      isAdmin: payload.isAdmin ?? false,
       createdAt: "",
     };
   } catch {

@@ -15,10 +15,19 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
       id: string;
       email: string;
       name: string;
+      isAdmin: boolean;
     };
-    req.user = payload;
+    req.user = { ...payload, isAdmin: payload.isAdmin ?? false };
     next();
   } catch {
     res.status(401).json({ error: "Invalid or expired token" });
   }
+}
+
+export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
+  if (!req.user?.isAdmin) {
+    res.status(403).json({ error: "Admin access required" });
+    return;
+  }
+  next();
 }

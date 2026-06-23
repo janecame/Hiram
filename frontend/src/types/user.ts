@@ -11,6 +11,7 @@ export interface User {
   idSubmitted: boolean;
   /** Business papers on file — business accounts only (unverified in Phase 1) */
   businessDocsSubmitted: boolean;
+  isAdmin: boolean;
   /** ISO string */
   createdAt: string;
 }

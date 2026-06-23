@@ -9,5 +9,6 @@ export interface User {
   address: string;
   idSubmitted: boolean;
   businessDocsSubmitted: boolean;
+  isAdmin: boolean;
   createdAt: string;
 }

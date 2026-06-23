@@ -191,6 +191,14 @@ export const ItemModel = {
     return rowToItem(row);
   },
 
+  async adminDeleteItem(id: string): Promise<boolean> {
+    const result = await pool.query(
+      `DELETE FROM public.items WHERE id = $1`,
+      [id]
+    );
+    return (result.rowCount ?? 0) > 0;
+  },
+
   async create(input: NewItemInput, ownerId: string): Promise<Item> {
     const result = await pool.query(
       `INSERT INTO public.items

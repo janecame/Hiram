@@ -20,6 +20,7 @@ function rowToUser(row: Record<string, unknown>): User {
     address: (row["address"] as string | null) ?? "",
     idSubmitted: row["id_submitted"] as boolean,
     businessDocsSubmitted: row["business_docs_submitted"] as boolean,
+    isAdmin: (row["is_admin"] as boolean) ?? false,
     createdAt:
       row["created_at"] instanceof Date
         ? (row["created_at"] as Date).toISOString()
@@ -105,5 +106,58 @@ export const UserModel = {
       [email]
     );
     return result.rowCount !== null && result.rowCount > 0;
+  },
+
+  async findAllAdmin(opts: {
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    accountType?: "solo" | "business" | "all";
+    sort?: "newest" | "oldest" | "name_asc" | "name_desc";
+  } = {}): Promise<{ users: User[]; total: number; totalPages: number }> {
+    const { page = 1, pageSize = 20, search = "", accountType, sort = "newest" } = opts;
+
+    const conditions: string[] = [];
+    const params: unknown[] = [];
+    let p = 1;
+
+    if (search.trim()) {
+      conditions.push(`(name ILIKE $${p} OR email ILIKE $${p})`);
+      params.push(`%${search.trim()}%`);
+      p++;
+    }
+    if (accountType && accountType !== "all") {
+      conditions.push(`account_type = $${p++}::account_type`);
+      params.push(accountType);
+    }
+
+    const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+    const ORDER_MAP: Record<string, string> = {
+      newest: "created_at DESC",
+      oldest: "created_at ASC",
+      name_asc: "name ASC",
+      name_desc: "name DESC",
+    };
+    const orderBy = ORDER_MAP[sort] ?? ORDER_MAP["newest"];
+
+    const countResult = await pool.query(`SELECT COUNT(*) FROM public.users ${where}`, params);
+    const total = parseInt(countResult.rows[0]["count"] as string, 10);
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const safePage = Math.min(Math.max(1, page), totalPages);
+    const offset = (safePage - 1) * pageSize;
+
+    const result = await pool.query(
+      `SELECT * FROM public.users ${where} ORDER BY ${orderBy} LIMIT $${p} OFFSET $${p + 1}`,
+      [...params, pageSize, offset]
+    );
+    return { users: result.rows.map(rowToUser), total, totalPages };
+  },
+
+  async deleteById(id: string): Promise<boolean> {
+    const result = await pool.query(
+      `DELETE FROM public.users WHERE id = $1`,
+      [id]
+    );
+    return (result.rowCount ?? 0) > 0;
   },
 };

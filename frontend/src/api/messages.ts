@@ -1,4 +1,5 @@
 import type { Conversation, Message } from '../types/message';
+import { API_BASE } from './_base';
 
 function authHeaders(): Record<string, string> {
   const token = localStorage.getItem('hiram_token');
@@ -6,13 +7,13 @@ function authHeaders(): Record<string, string> {
 }
 
 export async function getConversations(): Promise<Conversation[]> {
-  const res = await fetch('/api/conversations', { headers: authHeaders() });
+  const res = await fetch(`${API_BASE}/api/conversations`, { headers: authHeaders() });
   if (!res.ok) throw new Error('Failed to fetch conversations');
   return res.json() as Promise<Conversation[]>;
 }
 
 export async function createConversation(listerId: string, itemId?: string | null): Promise<Conversation> {
-  const res = await fetch('/api/conversations', {
+  const res = await fetch(`${API_BASE}/api/conversations`, {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify({ listerId, itemId: itemId ?? null }),
@@ -22,13 +23,13 @@ export async function createConversation(listerId: string, itemId?: string | nul
 }
 
 export async function getMessages(conversationId: string): Promise<Message[]> {
-  const res = await fetch(`/api/conversations/${conversationId}/messages`, { headers: authHeaders() });
+  const res = await fetch(`${API_BASE}/api/conversations/${conversationId}/messages`, { headers: authHeaders() });
   if (!res.ok) throw new Error('Failed to fetch messages');
   return res.json() as Promise<Message[]>;
 }
 
 export async function sendMessage(conversationId: string, content: string): Promise<Message> {
-  const res = await fetch(`/api/conversations/${conversationId}/messages`, {
+  const res = await fetch(`${API_BASE}/api/conversations/${conversationId}/messages`, {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify({ content }),
@@ -38,7 +39,7 @@ export async function sendMessage(conversationId: string, content: string): Prom
 }
 
 export async function getUnreadMessageCount(): Promise<number> {
-  const res = await fetch('/api/conversations/unread-count', { headers: authHeaders() });
+  const res = await fetch(`${API_BASE}/api/conversations/unread-count`, { headers: authHeaders() });
   if (!res.ok) throw new Error('Failed to get unread count');
   const data = (await res.json()) as { count: number };
   return data.count;

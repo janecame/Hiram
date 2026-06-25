@@ -3,8 +3,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { io, type Socket } from 'socket.io-client';
 import { useAuth } from '../auth/AuthContext';
 import type { Message } from '../types/message';
+import { API_BASE } from '../api/_base';
 
-const BACKEND_URL = 'http://localhost:3001';
+const BACKEND_URL = API_BASE || window.location.origin;
 
 let socketInstance: Socket | null = null;
 

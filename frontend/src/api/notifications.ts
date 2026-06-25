@@ -1,4 +1,5 @@
 import type { Notification } from '../types/notification';
+import { API_BASE } from './_base';
 
 function authHeaders(): Record<string, string> {
   const token = localStorage.getItem('hiram_token');
@@ -7,14 +8,14 @@ function authHeaders(): Record<string, string> {
 
 export async function getNotifications(opts?: { limit?: number }): Promise<Notification[]> {
   const params = opts?.limit ? `?limit=${opts.limit}` : '';
-  const res = await fetch(`/api/notifications${params}`, { headers: authHeaders() });
+  const res = await fetch(`${API_BASE}/api/notifications${params}`, { headers: authHeaders() });
   if (res.status === 401) throw new Error('Authentication required');
   if (!res.ok) throw new Error('Failed to fetch notifications');
   return res.json() as Promise<Notification[]>;
 }
 
 export async function getUnreadCount(): Promise<number> {
-  const res = await fetch('/api/notifications/unread-count', { headers: authHeaders() });
+  const res = await fetch(`${API_BASE}/api/notifications/unread-count`, { headers: authHeaders() });
   if (res.status === 401) throw new Error('Authentication required');
   if (!res.ok) throw new Error('Failed to get unread count');
   const data = (await res.json()) as { count: number };
@@ -22,7 +23,7 @@ export async function getUnreadCount(): Promise<number> {
 }
 
 export async function markRead(id: string): Promise<void> {
-  const res = await fetch(`/api/notifications/${id}/read`, {
+  const res = await fetch(`${API_BASE}/api/notifications/${id}/read`, {
     method: 'PATCH',
     headers: authHeaders(),
   });
@@ -31,7 +32,7 @@ export async function markRead(id: string): Promise<void> {
 }
 
 export async function markAllRead(): Promise<void> {
-  const res = await fetch('/api/notifications/read-all', {
+  const res = await fetch(`${API_BASE}/api/notifications/read-all`, {
     method: 'PATCH',
     headers: authHeaders(),
   });

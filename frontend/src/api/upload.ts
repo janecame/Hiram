@@ -1,3 +1,5 @@
+import { API_BASE } from "./_base";
+
 function getToken(): string | null {
   return localStorage.getItem("hiram_token");
 }
@@ -6,7 +8,7 @@ export async function uploadImage(file: File, prefix?: "items" | "ids"): Promise
   const token = getToken();
   if (!token) throw new Error("Authentication required");
 
-  const presignRes = await fetch("/api/upload/presign", {
+  const presignRes = await fetch(`${API_BASE}/api/upload/presign`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

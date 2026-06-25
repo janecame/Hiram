@@ -1,4 +1,5 @@
 import type { NewReviewInput, Review } from "../types/review";
+import { API_BASE } from "./_base";
 
 function getToken(): string | null {
   return localStorage.getItem("hiram_token");
@@ -10,7 +11,7 @@ function authHeaders(): Record<string, string> {
 }
 
 export async function createReview(input: NewReviewInput): Promise<Review> {
-  const res = await fetch("/api/reviews", {
+  const res = await fetch(`${API_BASE}/api/reviews`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(input),
@@ -30,13 +31,13 @@ export async function createReview(input: NewReviewInput): Promise<Review> {
 }
 
 export async function getReviewsByItem(itemId: string): Promise<Review[]> {
-  const res = await fetch(`/api/reviews/item/${itemId}`);
+  const res = await fetch(`${API_BASE}/api/reviews/item/${itemId}`);
   if (!res.ok) throw new Error("Failed to fetch reviews");
   return res.json() as Promise<Review[]>;
 }
 
 export async function getReviewsByUser(userId: string): Promise<Review[]> {
-  const res = await fetch(`/api/reviews/user/${userId}`);
+  const res = await fetch(`${API_BASE}/api/reviews/user/${userId}`);
   if (!res.ok) throw new Error("Failed to fetch reviews");
   return res.json() as Promise<Review[]>;
 }

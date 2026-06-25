@@ -1,4 +1,5 @@
 import type { Category, Item, ItemStatus, NewItemInput } from "../types/item";
+import { API_BASE } from "./_base";
 
 export type SortKey = "nearest" | "cheapest" | "newest";
 
@@ -45,13 +46,13 @@ export async function listItems(
   if (filters.userLat != null) params.set("userLat", String(filters.userLat));
   if (filters.userLng != null) params.set("userLng", String(filters.userLng));
 
-  const res = await fetch(`/api/items?${params}`);
+  const res = await fetch(`${API_BASE}/api/items?${params}`);
   if (!res.ok) throw new Error("Failed to fetch items");
   return res.json() as Promise<PaginatedItems>;
 }
 
 export async function getItem(id: string): Promise<Item | null> {
-  const res = await fetch(`/api/items/${id}`);
+  const res = await fetch(`${API_BASE}/api/items/${id}`);
   if (res.status === 404) return null;
   if (!res.ok) throw new Error("Failed to fetch item");
   return res.json() as Promise<Item>;
@@ -63,14 +64,14 @@ export async function getItemsByOwner(
 ): Promise<Item[]> {
   const params = new URLSearchParams({ owner, pageSize: "100" });
   if (opts?.archived === true) params.set("archived", "true");
-  const res = await fetch(`/api/items?${params}`);
+  const res = await fetch(`${API_BASE}/api/items?${params}`);
   if (!res.ok) throw new Error("Failed to fetch items by owner");
   const data = (await res.json()) as PaginatedItems;
   return data.items;
 }
 
 export async function setItemArchived(id: string, archived: boolean): Promise<Item> {
-  const res = await fetch(`/api/items/${id}/archive`, {
+  const res = await fetch(`${API_BASE}/api/items/${id}/archive`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ archived }),
@@ -83,7 +84,7 @@ export async function setItemArchived(id: string, archived: boolean): Promise<It
 }
 
 export async function deleteItem(id: string): Promise<void> {
-  const res = await fetch(`/api/items/${id}`, {
+  const res = await fetch(`${API_BASE}/api/items/${id}`, {
     method: "DELETE",
     headers: authHeaders(),
   });
@@ -94,7 +95,7 @@ export async function deleteItem(id: string): Promise<void> {
 }
 
 export async function createItem(input: NewItemInput): Promise<Item> {
-  const res = await fetch("/api/items", {
+  const res = await fetch(`${API_BASE}/api/items`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(input),
@@ -105,7 +106,7 @@ export async function createItem(input: NewItemInput): Promise<Item> {
 }
 
 export async function updateItem(id: string, input: Partial<NewItemInput>): Promise<Item> {
-  const res = await fetch(`/api/items/${id}`, {
+  const res = await fetch(`${API_BASE}/api/items/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(input),

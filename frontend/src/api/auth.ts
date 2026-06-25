@@ -1,4 +1,5 @@
 import type { User } from "../types/user";
+import { API_BASE } from "./_base";
 
 export interface AuthResponse {
   token: string;
@@ -11,7 +12,7 @@ export async function apiRegister(data: {
   password: string;
   accountType?: "solo" | "business";
 }): Promise<AuthResponse> {
-  const res = await fetch("/api/auth/register", {
+  const res = await fetch(`${API_BASE}/api/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -25,7 +26,7 @@ export async function apiLogin(data: {
   email: string;
   password: string;
 }): Promise<AuthResponse> {
-  const res = await fetch("/api/auth/login", {
+  const res = await fetch(`${API_BASE}/api/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),

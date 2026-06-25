@@ -558,7 +558,7 @@ Each worktree agent must commit with descriptive messages following this pattern
 ❌- PayMongo payment integration
 ❌- Damage claims
 ✅- Admin tooling
-❌- Credential verification
+✅- Credential verification
 ✅- Image upload service
 ✅- Mutual reviews (lister rating borrower)
 

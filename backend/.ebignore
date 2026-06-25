@@ -1,0 +1,12 @@
+# Source — only compiled dist/ ships to EB
+src/
+
+# Local dev only
+node_modules/
+.env
+*.local
+
+# Repo/tooling
+.git/
+.github/
+*.md

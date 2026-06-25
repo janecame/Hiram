@@ -15,6 +15,7 @@ import notificationsRouter from "./routes/notifications";
 import messagesRouter from "./routes/messages";
 import uploadRouter from "./routes/upload";
 import adminRouter from "./routes/admin";
+import { pool } from "./db";
 
 const app = express();
 const httpServer = createServer(app);
@@ -24,6 +25,15 @@ const PORT = process.env["PORT"] ?? 3001;
 
 app.use(cors());
 app.use(express.json());
+
+app.get("/health", async (_req, res) => {
+  try {
+    await pool.query("SELECT 1");
+    res.json({ status: "ok", db: "connected" });
+  } catch (err) {
+    res.status(503).json({ status: "error", db: "unreachable", detail: String(err) });
+  }
+});
 
 app.use("/api/auth", authRouter);
 app.use("/api/users", usersRouter);

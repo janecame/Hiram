@@ -4,7 +4,8 @@ import { NotificationModel } from '../models/notification.model';
 export const NotificationController = {
   async list(req: Request, res: Response): Promise<void> {
     try {
-      const notifications = await NotificationModel.findByRecipient(req.user!.id);
+      const limit = req.query["limit"] ? parseInt(req.query["limit"] as string, 10) : 20;
+      const notifications = await NotificationModel.findByRecipient(req.user!.id, limit);
       res.status(200).json(notifications);
     } catch (err) {
       console.error('GET /api/notifications failed:', err);

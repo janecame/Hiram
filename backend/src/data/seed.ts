@@ -68,11 +68,17 @@ async function seed(): Promise<void> {
       continue;
     }
 
+    const hasLocation = item.lat != null && item.lng != null;
+    const locationParam = hasLocation
+      ? `ST_SetSRID(ST_MakePoint($18, $19), 4326)::geography`
+      : `NULL`;
+
     await pool.query(
       `INSERT INTO public.items
          (owner_id, title, category, condition, status, description, brand,
-          price_per_day, price_per_hour, image_url, area, requirements, quantity)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+          price_per_day, price_per_hour, image_url, area, requirements, quantity,
+          province, city, barangay, address_detail, location)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,${locationParam})`,
       [
         owner.id,
         item.title,
@@ -87,6 +93,11 @@ async function seed(): Promise<void> {
         item.area,
         item.requirements ?? null,
         item.quantity ?? 1,
+        item.province ?? null,
+        item.city ?? null,
+        item.barangay ?? null,
+        item.addressDetail ?? null,
+        ...(hasLocation ? [item.lng, item.lat] : []),
       ]
     );
     itemsCreated++;

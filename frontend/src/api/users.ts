@@ -20,6 +20,19 @@ export async function getUser(_id: string): Promise<User | null> {
   return res.json() as Promise<User>;
 }
 
+export async function submitIdImage(imageUrl: string): Promise<User> {
+  const res = await fetch("/api/users/me/id", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeader() },
+    body: JSON.stringify({ imageUrl }),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? "Failed to submit ID");
+  }
+  return res.json() as Promise<User>;
+}
+
 export async function updateCurrentUser(
   data: Partial<Pick<User, "name" | "email" | "phone" | "address" | "accountType">>
 ): Promise<User> {

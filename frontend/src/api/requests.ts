@@ -22,7 +22,10 @@ export async function createRequest(
     body: JSON.stringify(input),
   });
   if (res.status === 401) throw new Error("Authentication required");
-  if (!res.ok) throw new Error("Failed to create request");
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? "Failed to create request");
+  }
   return res.json() as Promise<BorrowRequest>;
 }
 
@@ -56,4 +59,39 @@ export async function getBlockedDates(itemId: string): Promise<string[]> {
   const res = await fetch(`/api/items/${itemId}/blocked-dates`);
   if (!res.ok) throw new Error("Failed to fetch blocked dates");
   return res.json() as Promise<string[]>;
+}
+
+export async function counterOfferRequest(
+  id: string,
+  proposedStartDate: string,
+  proposedEndDate: string
+): Promise<BorrowRequest> {
+  const res = await fetch(`/api/requests/${id}/counter`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ proposedStartDate, proposedEndDate }),
+  });
+  if (res.status === 401) throw new Error("Authentication required");
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? "Failed to send counter-offer");
+  }
+  return res.json() as Promise<BorrowRequest>;
+}
+
+export async function respondToCounterOffer(
+  id: string,
+  action: "accept" | "decline"
+): Promise<BorrowRequest> {
+  const res = await fetch(`/api/requests/${id}/counter-response`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ action }),
+  });
+  if (res.status === 401) throw new Error("Authentication required");
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? "Failed to respond to counter-offer");
+  }
+  return res.json() as Promise<BorrowRequest>;
 }

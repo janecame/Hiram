@@ -1,7 +1,6 @@
-import type { Item } from "../types/item";
-
 /** Seed catalog. Distances are faked; areas are real-ish PH locations. */
-export const MOCK_ITEMS: Item[] = [
+// Not imported by UI — api/ layer calls the real backend.
+export const MOCK_ITEMS = [
   {
     id: "1",
     title: "Bosch Cordless Drill Kit",

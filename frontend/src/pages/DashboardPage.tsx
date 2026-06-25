@@ -16,9 +16,10 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { useSnackbar } from "../context/SnackbarContext";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
-import { useRequests, useUpdateRequestStatus } from "../hooks/useRequests";
+import { useCounterOffer, useRequests, useUpdateRequestStatus } from "../hooks/useRequests";
 import { useCreateReview, useReviewsByUser } from "../hooks/useReviews";
 import type { BorrowRequest } from "../types/request";
 import { EmptyState } from "../components/EmptyState";
@@ -41,9 +42,10 @@ export function DashboardPage() {
   const { isAuthenticated } = useAuth();
   const { data: requests, isLoading } = useRequests("lister");
   const updateStatus = useUpdateRequestStatus();
+  const snackbar = useSnackbar();
   const [ratedRequestIds, setRatedRequestIds] = useState<Set<string>>(() => new Set());
   const [reviewTarget, setReviewTarget] = useState<BorrowRequest | null>(null);
-  const [successMessage, setSuccessMessage] = useState("");
+  const [counterTarget, setCounterTarget] = useState<BorrowRequest | null>(null);
 
   const markRated = (requestId: string) => {
     setRatedRequestIds((prev) => {
@@ -56,6 +58,7 @@ export function DashboardPage() {
   if (!isAuthenticated) return <Navigate to="/" replace />;
 
   const pending = (requests ?? []).filter((r) => r.status === "pending");
+  const counterOffered = (requests ?? []).filter((r) => r.status === "counter_offered");
   const active = (requests ?? []).filter((r) => r.status === "approved");
   const completed = (requests ?? []).filter((r) => r.status === "completed");
 
@@ -89,6 +92,8 @@ export function DashboardPage() {
                 spacing={1}
                 sx={{ flexShrink: 0 }}
                 alignItems="center"
+                flexWrap="wrap"
+                useFlexGap
               >
                 <Button
                   variant="contained"
@@ -96,10 +101,24 @@ export function DashboardPage() {
                   size="small"
                   disabled={updateStatus.isPending}
                   onClick={() =>
-                    updateStatus.mutate({ id: req.id, status: "approved" })
+                    updateStatus.mutate(
+                      { id: req.id, status: "approved" },
+                      {
+                        onSuccess: () => snackbar.success("Request approved."),
+                        onError: () => snackbar.error("Could not approve request. Please try again."),
+                      }
+                    )
                   }
                 >
                   Approve
+                </Button>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  disabled={updateStatus.isPending}
+                  onClick={() => setCounterTarget(req)}
+                >
+                  Propose new dates
                 </Button>
                 <Button
                   variant="outlined"
@@ -107,7 +126,13 @@ export function DashboardPage() {
                   size="small"
                   disabled={updateStatus.isPending}
                   onClick={() =>
-                    updateStatus.mutate({ id: req.id, status: "declined" })
+                    updateStatus.mutate(
+                      { id: req.id, status: "declined" },
+                      {
+                        onSuccess: () => snackbar.success("Request declined."),
+                        onError: () => snackbar.error("Could not decline request. Please try again."),
+                      }
+                    )
                   }
                 >
                   Decline
@@ -116,6 +141,37 @@ export function DashboardPage() {
             </RequestRow>
           ))}
         </Stack>
+      )}
+
+      {counterOffered.length > 0 && (
+        <>
+          <Divider sx={{ my: 4 }} />
+          <Typography variant="h5" component="h2" sx={{ mb: 2 }}>
+            Counter-Offers Sent
+          </Typography>
+          <Stack spacing={2}>
+            {counterOffered.map((req) => (
+              <RequestRow key={req.id}>
+                <Stack spacing={0.75} sx={{ minWidth: 0, flex: 1 }}>
+                  <RequestDetails req={req} />
+                  {req.proposedStartDate && req.proposedEndDate && (
+                    <Typography variant="body2" sx={{ color: "warning.dark", fontWeight: 500 }}>
+                      Proposed: {formatRange(req.proposedStartDate, req.proposedEndDate)}
+                    </Typography>
+                  )}
+                </Stack>
+                <Stack sx={{ flexShrink: 0 }} justifyContent="center">
+                  <Chip
+                    label="Waiting for borrower"
+                    size="small"
+                    variant="outlined"
+                    color="primary"
+                  />
+                </Stack>
+              </RequestRow>
+            ))}
+          </Stack>
+        </>
       )}
 
       <Divider sx={{ my: 4 }} />
@@ -143,7 +199,13 @@ export function DashboardPage() {
                   size="small"
                   disabled={updateStatus.isPending}
                   onClick={() =>
-                    updateStatus.mutate({ id: req.id, status: "completed" })
+                    updateStatus.mutate(
+                      { id: req.id, status: "completed" },
+                      {
+                        onSuccess: () => snackbar.success("Rental marked as returned."),
+                        onError: () => snackbar.error("Could not update rental. Please try again."),
+                      }
+                    )
                   }
                 >
                   Mark as Returned
@@ -190,25 +252,21 @@ export function DashboardPage() {
         </Stack>
       )}
 
-      {successMessage && (
-        <Alert severity="success" sx={{ mt: 3 }} onClose={() => setSuccessMessage("")}>
-          {successMessage}
-        </Alert>
-      )}
-
-      {updateStatus.isError && (
-        <Alert severity="error" variant="outlined" sx={{ mt: 3 }}>
-          Could not update the request. Please try again.
-        </Alert>
-      )}
-
       <RateBorrowerDialog
         request={reviewTarget}
         onClose={() => setReviewTarget(null)}
         onSuccess={(req) => {
           markRated(req.id);
           setReviewTarget(null);
-          setSuccessMessage(`You rated ${req.borrowerName} for "${req.itemTitle}".`);
+          snackbar.success(`You rated ${req.borrowerName} for "${req.itemTitle}".`);
+        }}
+      />
+      <CounterOfferDialog
+        request={counterTarget}
+        onClose={() => setCounterTarget(null)}
+        onSuccess={() => {
+          setCounterTarget(null);
+          snackbar.success("Counter-offer sent to borrower.");
         }}
       />
     </Container>
@@ -274,9 +332,14 @@ function RequestDetails({
         {req.itemTitle}
       </Typography>
       <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap>
-        <Typography variant="body2" sx={{ color: "text.secondary" }}>
-          Borrower: {req.borrowerName}
-        </Typography>
+        <Stack direction="row" spacing={0.5} alignItems="center">
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
+            Borrower: {req.borrowerName}
+          </Typography>
+          {req.borrowerVerificationStatus === "verified" && (
+            <Chip label="Verified" size="small" color="primary" variant="filled" sx={{ height: 18, fontSize: 10, fontWeight: 600 }} />
+          )}
+        </Stack>
         {showBorrowerRating && <BorrowerRatingBadge borrowerId={req.borrowerId} />}
       </Stack>
       <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap>
@@ -314,6 +377,96 @@ function LoadingRows() {
         <Skeleton key={i} variant="rounded" height={96} />
       ))}
     </Stack>
+  );
+}
+
+function CounterOfferDialog({
+  request,
+  onClose,
+  onSuccess,
+}: {
+  request: BorrowRequest | null;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const counterOffer = useCounterOffer();
+  const [proposedStart, setProposedStart] = useState("");
+  const [proposedEnd, setProposedEnd] = useState("");
+  const [error, setError] = useState("");
+
+  const open = request !== null;
+
+  useEffect(() => {
+    if (open) {
+      setProposedStart(request?.startDate ?? "");
+      setProposedEnd(request?.endDate ?? "");
+      setError("");
+    }
+  }, [open, request?.id]);
+
+  const handleSubmit = async () => {
+    if (!request || !proposedStart || !proposedEnd) return;
+    if (proposedEnd < proposedStart) {
+      setError("End date must be on or after start date.");
+      return;
+    }
+    setError("");
+    try {
+      await counterOffer.mutateAsync({
+        id: request.id,
+        proposedStartDate: proposedStart,
+        proposedEndDate: proposedEnd,
+      });
+      onSuccess();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Something went wrong");
+    }
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+      <DialogTitle>Propose new dates</DialogTitle>
+      <DialogContent>
+        <Stack spacing={2.5} sx={{ mt: 1 }}>
+          {request && (
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
+              Suggest alternative dates to {request.borrowerName} for "{request.itemTitle}".
+              They will be notified and can accept or decline.
+            </Typography>
+          )}
+          <TextField
+            label="Proposed start date"
+            type="date"
+            fullWidth
+            value={proposedStart}
+            onChange={(e) => setProposedStart(e.target.value)}
+            InputLabelProps={{ shrink: true }}
+          />
+          <TextField
+            label="Proposed end date"
+            type="date"
+            fullWidth
+            value={proposedEnd}
+            onChange={(e) => setProposedEnd(e.target.value)}
+            InputLabelProps={{ shrink: true }}
+          />
+          {error && <Alert severity="error">{error}</Alert>}
+        </Stack>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button onClick={onClose} color="inherit" disabled={counterOffer.isPending}>
+          Cancel
+        </Button>
+        <Button
+          variant="contained"
+          color="secondary"
+          disabled={!proposedStart || !proposedEnd || counterOffer.isPending}
+          onClick={() => void handleSubmit()}
+        >
+          {counterOffer.isPending ? "Sending…" : "Send counter-offer"}
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 }
 

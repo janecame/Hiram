@@ -5,8 +5,9 @@ function authHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-export async function getNotifications(): Promise<Notification[]> {
-  const res = await fetch('/api/notifications', { headers: authHeaders() });
+export async function getNotifications(opts?: { limit?: number }): Promise<Notification[]> {
+  const params = opts?.limit ? `?limit=${opts.limit}` : '';
+  const res = await fetch(`/api/notifications${params}`, { headers: authHeaders() });
   if (res.status === 401) throw new Error('Authentication required');
   if (!res.ok) throw new Error('Failed to fetch notifications');
   return res.json() as Promise<Notification[]>;

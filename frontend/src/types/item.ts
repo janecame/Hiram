@@ -22,8 +22,18 @@ export interface Item {
   pricePerHour?: number;
   /** Uploaded image URL; falls back to the category icon when absent */
   imageUrl?: string;
-  /** Faked for now — later computed from PostGIS */
-  distanceKm: number;
+  /** Computed via PostGIS when user coords are provided; undefined otherwise */
+  distanceKm?: number;
+  lat?: number;
+  lng?: number;
+  /** PSGC province name (manual select) */
+  province?: string;
+  /** PSGC city / municipality name (manual select) */
+  city?: string;
+  /** PSGC barangay name (manual select) */
+  barangay?: string;
+  /** Block / lot / street / landmark — free text */
+  addressDetail?: string;
   area: string;
   /** UUID of the owner user */
   ownerId: string;
@@ -40,6 +50,8 @@ export interface Item {
   requirements?: string;
   /** How many identical units the lister has available — new in Phase 2 */
   quantity: number;
+  /** Whether the listing is archived (hidden from browse; owner-only action) */
+  archived: boolean;
   /** ISO string */
   createdAt: string;
 }
@@ -47,11 +59,11 @@ export interface Item {
 /**
  * Shape accepted by createItem. Server-managed fields are derived:
  * `id`, `createdAt`, `distanceKm` are generated; `status` defaults to
- * "available" and `rating` accrues from reviews — neither is lister-supplied.
+ * "available", `archived` defaults to false, and `rating` accrues from reviews.
  */
 export type NewItemInput = Omit<
   Item,
-  "id" | "createdAt" | "distanceKm" | "status" | "rating" | "owner" | "ownerId"
+  "id" | "createdAt" | "distanceKm" | "status" | "rating" | "owner" | "ownerId" | "archived"
 >;
 
 export const CATEGORIES: Category[] = [

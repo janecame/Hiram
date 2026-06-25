@@ -1,10 +1,13 @@
+import type { VerificationStatus } from "./user";
+
 export type RequestStatus =
   | "pending"
   | "approved"
   | "declined"
   | "cancelled"
   | "completed"
-  | "return_requested";
+  | "return_requested"
+  | "counter_offered";
 
 export interface BorrowRequest {
   id: string;
@@ -13,11 +16,14 @@ export interface BorrowRequest {
   itemArea: string;
   borrowerId: string;
   borrowerName: string;
+  borrowerVerificationStatus: VerificationStatus;
   listerId: string;
   listerName: string;
   status: RequestStatus;
   startDate: string;
   endDate: string;
+  proposedStartDate?: string;
+  proposedEndDate?: string;
   useHours: boolean;
   message?: string;
   createdAt: string;

@@ -1,4 +1,4 @@
-import type { User } from "../types/user";
+import type { User, VerificationStatus } from "../types/user";
 import type { Item } from "../types/item";
 
 function getToken(): string | null {
@@ -41,6 +41,7 @@ export interface AdminUsersParams {
   pageSize?: number;
   search?: string;
   accountType?: "solo" | "business" | "all";
+  verificationStatus?: VerificationStatus | "all";
   sort?: "newest" | "oldest" | "name_asc" | "name_desc";
 }
 
@@ -70,9 +71,21 @@ export function getAdminUsers(params: AdminUsersParams = {}): Promise<AdminUsers
   if (params.page)        q.set("page", String(params.page));
   if (params.pageSize)    q.set("pageSize", String(params.pageSize));
   if (params.search)      q.set("search", params.search);
-  if (params.accountType) q.set("accountType", params.accountType);
-  if (params.sort)        q.set("sort", params.sort);
+  if (params.accountType)        q.set("accountType", params.accountType);
+  if (params.verificationStatus) q.set("verificationStatus", params.verificationStatus);
+  if (params.sort)               q.set("sort", params.sort);
   return adminFetch<AdminUsersResponse>(`/users?${q.toString()}`);
+}
+
+export function setUserVerification(
+  id: string,
+  status: "pending" | "verified" | "rejected",
+  reason?: string
+): Promise<User> {
+  return adminFetch<User>(`/users/${id}/verification`, {
+    method: "PATCH",
+    body: JSON.stringify({ status, reason }),
+  });
 }
 
 export function deleteAdminUser(id: string): Promise<{ ok: boolean }> {

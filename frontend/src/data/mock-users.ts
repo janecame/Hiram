@@ -1,11 +1,16 @@
 import type { User } from "../types/user";
 
+type MockUser = Omit<User, "isAdmin" | "verificationStatus"> & {
+  isAdmin?: boolean;
+  verificationStatus?: User["verificationStatus"];
+};
+
 /**
  * Seed users. Names mirror the `owner` field on MOCK_ITEMS so a profile page
  * can list "items by this user" by matching on name (until real userIds land).
  * Never imported by UI directly — goes through api/ + hooks/ like items.
  */
-export const MOCK_USERS: User[] = [
+export const MOCK_USERS: MockUser[] = [
   {
     id: "u1",
     name: "Marco R.",

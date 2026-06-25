@@ -8,6 +8,8 @@ import {
   updateItem,
   getItemsByOwner,
   listItems,
+  setItemArchived,
+  deleteItem,
   type ListItemsFilters,
   type PaginatedItems,
 } from "../api/items";
@@ -32,6 +34,14 @@ export function useItemsByOwner(owner: string | undefined) {
   });
 }
 
+export function useArchivedItemsByOwner(owner: string | undefined) {
+  return useQuery({
+    queryKey: ["items", "by-owner-archived", owner],
+    queryFn: () => getItemsByOwner(owner as string, { archived: true }),
+    enabled: Boolean(owner),
+  });
+}
+
 export function useCreateItem() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -49,6 +59,27 @@ export function useUpdateItem(id: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["items"] });
       queryClient.invalidateQueries({ queryKey: ["item", id] });
+    },
+  });
+}
+
+export function useSetItemArchived() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, archived }: { id: string; archived: boolean }) =>
+      setItemArchived(id, archived),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["items"] });
+    },
+  });
+}
+
+export function useDeleteItem() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => deleteItem(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["items"] });
     },
   });
 }

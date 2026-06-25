@@ -9,6 +9,8 @@ export interface ListItemsFilters {
   sort?: SortKey;
   page?: number;
   pageSize?: number;
+  userLat?: number;
+  userLng?: number;
 }
 
 export interface PaginatedItems {
@@ -40,6 +42,8 @@ export async function listItems(
   if (filters.sort) params.set("sort", filters.sort);
   if (filters.page) params.set("page", String(filters.page));
   if (filters.pageSize) params.set("pageSize", String(filters.pageSize));
+  if (filters.userLat != null) params.set("userLat", String(filters.userLat));
+  if (filters.userLng != null) params.set("userLng", String(filters.userLng));
 
   const res = await fetch(`/api/items?${params}`);
   if (!res.ok) throw new Error("Failed to fetch items");
@@ -53,12 +57,40 @@ export async function getItem(id: string): Promise<Item | null> {
   return res.json() as Promise<Item>;
 }
 
-export async function getItemsByOwner(owner: string): Promise<Item[]> {
+export async function getItemsByOwner(
+  owner: string,
+  opts?: { archived?: boolean }
+): Promise<Item[]> {
   const params = new URLSearchParams({ owner, pageSize: "100" });
+  if (opts?.archived === true) params.set("archived", "true");
   const res = await fetch(`/api/items?${params}`);
   if (!res.ok) throw new Error("Failed to fetch items by owner");
   const data = (await res.json()) as PaginatedItems;
   return data.items;
+}
+
+export async function setItemArchived(id: string, archived: boolean): Promise<Item> {
+  const res = await fetch(`/api/items/${id}/archive`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ archived }),
+  });
+  if (res.status === 401) throw new Error("Authentication required");
+  if (res.status === 403) throw new Error("You do not own this item");
+  if (res.status === 404) throw new Error("Item not found");
+  if (!res.ok) throw new Error("Failed to update item");
+  return res.json() as Promise<Item>;
+}
+
+export async function deleteItem(id: string): Promise<void> {
+  const res = await fetch(`/api/items/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (res.status === 401) throw new Error("Authentication required");
+  if (res.status === 403) throw new Error("You do not own this item");
+  if (res.status === 404) throw new Error("Item not found");
+  if (!res.ok) throw new Error("Failed to delete item");
 }
 
 export async function createItem(input: NewItemInput): Promise<Item> {

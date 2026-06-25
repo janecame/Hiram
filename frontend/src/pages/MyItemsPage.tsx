@@ -8,6 +8,7 @@ import {
   Dialog,
   DialogActions,
   DialogContent,
+  DialogContentText,
   DialogTitle,
   Link,
   Rating,
@@ -18,20 +19,23 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { ArrowLeft, Plus } from "lucide-react";
-import { Link as RouterLink, Navigate, useSearchParams } from "react-router-dom";
+import { Archive, ArrowLeft, Pencil, Plus, Trash2, ArchiveRestore } from "lucide-react";
+import { Link as RouterLink, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
-import { useItemsByOwner } from "../hooks/useItems";
-import { useRequests } from "../hooks/useRequests";
+import { useSnackbar } from "../context/SnackbarContext";
+import { useArchivedItemsByOwner, useDeleteItem, useItemsByOwner, useSetItemArchived } from "../hooks/useItems";
+import { useRequests, useRespondToCounter } from "../hooks/useRequests";
 import { useCreateReview } from "../hooks/useReviews";
 import { ItemCard } from "../components/ItemCard";
+import type { CardMenuItem } from "../components/ItemCard";
 import { ItemCardSkeleton } from "../components/ItemCardSkeleton";
 import { EmptyState } from "../components/EmptyState";
 import type { BorrowRequest, RequestStatus } from "../types/request";
+import type { Item } from "../types/item";
 
 const STATUS_CHIP_COLOR: Record<
   RequestStatus,
-  "default" | "success" | "error" | "primary"
+  "default" | "success" | "error" | "primary" | "warning"
 > = {
   pending: "default",
   approved: "success",
@@ -39,6 +43,7 @@ const STATUS_CHIP_COLOR: Record<
   completed: "primary",
   cancelled: "default",
   return_requested: "default",
+  counter_offered: "warning",
 };
 
 function formatRange(start: string, end: string): string {
@@ -69,15 +74,18 @@ const gridSx = {
 export function MyItemsPage() {
   const { currentUser, isAuthenticated } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [deleteTarget, setDeleteTarget] = useState<Item | null>(null);
   const tabParam = searchParams.get("tab");
-  const tab = tabParam === "requests" ? 1 : 0;
+  const tab = tabParam === "archived" ? 1 : tabParam === "requests" ? 2 : 0;
 
   if (!isAuthenticated || !currentUser) {
     return <Navigate to="/" replace />;
   }
 
   const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
-    setSearchParams(newValue === 1 ? { tab: "requests" } : {});
+    if (newValue === 1) setSearchParams({ tab: "archived" });
+    else if (newValue === 2) setSearchParams({ tab: "requests" });
+    else setSearchParams({});
   };
 
   return (
@@ -122,17 +130,37 @@ export function MyItemsPage() {
         sx={{ mb: 3, borderBottom: "1px solid", borderColor: "divider" }}
       >
         <Tab label="My Items" />
+        <Tab label="Archived" />
         <Tab label="My Requests" />
       </Tabs>
 
-      {tab === 0 && <ItemsGrid ownerName={currentUser.name} />}
-      {tab === 1 && <MyRequestsTab />}
+      {tab === 0 && (
+        <ItemsGrid ownerName={currentUser.name} onDelete={setDeleteTarget} />
+      )}
+      {tab === 1 && (
+        <ArchivedGrid ownerName={currentUser.name} onDelete={setDeleteTarget} />
+      )}
+      {tab === 2 && <MyRequestsTab />}
+
+      <DeleteConfirmDialog
+        item={deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+      />
     </Container>
   );
 }
 
-function ItemsGrid({ ownerName }: { ownerName: string }) {
+function ItemsGrid({
+  ownerName,
+  onDelete,
+}: {
+  ownerName: string;
+  onDelete: (item: Item) => void;
+}) {
   const { data: items, isLoading } = useItemsByOwner(ownerName);
+  const archiveMutation = useSetItemArchived();
+  const snackbar = useSnackbar();
+  const navigate = useNavigate();
 
   if (isLoading) {
     return (
@@ -155,20 +183,159 @@ function ItemsGrid({ ownerName }: { ownerName: string }) {
 
   return (
     <Box sx={gridSx}>
-      {items.map((item) => (
-        <ItemCard key={item.id} item={item} />
-      ))}
+      {items.map((item) => {
+        const menuItems: CardMenuItem[] = [
+          {
+            label: "Edit",
+            icon: <Pencil size={15} />,
+            onClick: () => navigate(`/item/${item.id}/edit`),
+          },
+          {
+            label: "Archive",
+            icon: <Archive size={15} />,
+            onClick: () =>
+              archiveMutation.mutate(
+                { id: item.id, archived: true },
+                {
+                  onSuccess: () => snackbar.success(`"${item.title}" archived.`),
+                  onError: () => snackbar.error("Could not archive item. Please try again."),
+                }
+              ),
+          },
+          {
+            label: "Delete",
+            icon: <Trash2 size={15} />,
+            onClick: () => onDelete(item),
+            danger: true,
+          },
+        ];
+        return <ItemCard key={item.id} item={item} menuItems={menuItems} />;
+      })}
     </Box>
+  );
+}
+
+function ArchivedGrid({
+  ownerName,
+  onDelete,
+}: {
+  ownerName: string;
+  onDelete: (item: Item) => void;
+}) {
+  const { data: items, isLoading } = useArchivedItemsByOwner(ownerName);
+  const archiveMutation = useSetItemArchived();
+  const snackbar = useSnackbar();
+
+  if (isLoading) {
+    return (
+      <Box sx={gridSx}>
+        {Array.from({ length: 8 }).map((_, i) => (
+          <ItemCardSkeleton key={i} />
+        ))}
+      </Box>
+    );
+  }
+
+  if (!items || items.length === 0) {
+    return (
+      <EmptyState
+        title="No archived items"
+        message="Items you archive will appear here. You can unarchive them at any time."
+      />
+    );
+  }
+
+  return (
+    <Box sx={gridSx}>
+      {items.map((item) => {
+        const menuItems: CardMenuItem[] = [
+          {
+            label: "Unarchive",
+            icon: <ArchiveRestore size={15} />,
+            onClick: () =>
+              archiveMutation.mutate(
+                { id: item.id, archived: false },
+                {
+                  onSuccess: () => snackbar.success(`"${item.title}" unarchived.`),
+                  onError: () => snackbar.error("Could not unarchive item. Please try again."),
+                }
+              ),
+          },
+          {
+            label: "Delete",
+            icon: <Trash2 size={15} />,
+            onClick: () => onDelete(item),
+            danger: true,
+          },
+        ];
+        return <ItemCard key={item.id} item={item} menuItems={menuItems} />;
+      })}
+    </Box>
+  );
+}
+
+function DeleteConfirmDialog({
+  item,
+  onClose,
+}: {
+  item: Item | null;
+  onClose: () => void;
+}) {
+  const deleteMutation = useDeleteItem();
+  const snackbar = useSnackbar();
+  const [error, setError] = useState("");
+
+  const handleDelete = async () => {
+    if (!item) return;
+    setError("");
+    try {
+      await deleteMutation.mutateAsync(item.id);
+      onClose();
+      snackbar.success(`"${item.title}" has been deleted.`);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Something went wrong");
+    }
+  };
+
+  return (
+    <Dialog open={item !== null} onClose={onClose} maxWidth="xs" fullWidth>
+      <DialogTitle>Delete this item?</DialogTitle>
+      <DialogContent>
+        <DialogContentText>
+          <strong>"{item?.title}"</strong> will be permanently deleted. This
+          cannot be undone.
+        </DialogContentText>
+        {error && (
+          <Alert severity="error" sx={{ mt: 2 }}>
+            {error}
+          </Alert>
+        )}
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button onClick={onClose} color="inherit" disabled={deleteMutation.isPending}>
+          Cancel
+        </Button>
+        <Button
+          variant="contained"
+          color="error"
+          disabled={deleteMutation.isPending}
+          onClick={() => void handleDelete()}
+        >
+          {deleteMutation.isPending ? "Deleting…" : "Delete permanently"}
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 }
 
 function MyRequestsTab() {
   const { data: requests, isLoading } = useRequests("borrower");
+  const snackbar = useSnackbar();
+  const respondToCounter = useRespondToCounter();
   const [reviewedRequestIds, setReviewedRequestIds] = useState<Set<string>>(
     () => new Set()
   );
   const [reviewTarget, setReviewTarget] = useState<BorrowRequest | null>(null);
-  const [successMessage, setSuccessMessage] = useState("");
 
   const markReviewed = (requestId: string) => {
     setReviewedRequestIds((prev) => {
@@ -199,17 +366,31 @@ function MyRequestsTab() {
 
   return (
     <Stack spacing={2}>
-      {successMessage && (
-        <Alert severity="success" onClose={() => setSuccessMessage("")}>
-          {successMessage}
-        </Alert>
-      )}
       {requests.map((req) => (
         <RequestHistoryRow
           key={req.id}
           req={req}
           reviewed={reviewedRequestIds.has(req.id)}
           onReview={() => setReviewTarget(req)}
+          onAcceptCounter={() =>
+            respondToCounter.mutate(
+              { id: req.id, action: "accept" },
+              {
+                onSuccess: () => snackbar.success("Counter-offer accepted. The lister will review your updated request."),
+                onError: () => snackbar.error("Could not accept counter-offer. Please try again."),
+              }
+            )
+          }
+          onDeclineCounter={() =>
+            respondToCounter.mutate(
+              { id: req.id, action: "decline" },
+              {
+                onSuccess: () => snackbar.success("Counter-offer declined."),
+                onError: () => snackbar.error("Could not decline counter-offer. Please try again."),
+              }
+            )
+          }
+          isCounterPending={respondToCounter.isPending}
         />
       ))}
       <ReviewDialog
@@ -218,7 +399,7 @@ function MyRequestsTab() {
         onSuccess={(req) => {
           markReviewed(req.id);
           setReviewTarget(null);
-          setSuccessMessage(`Thanks for reviewing "${req.itemTitle}"!`);
+          snackbar.success(`Thanks for reviewing "${req.itemTitle}"!`);
         }}
       />
     </Stack>
@@ -229,16 +410,24 @@ function RequestHistoryRow({
   req,
   reviewed,
   onReview,
+  onAcceptCounter,
+  onDeclineCounter,
+  isCounterPending,
 }: {
   req: BorrowRequest;
   reviewed: boolean;
   onReview: () => void;
+  onAcceptCounter: () => void;
+  onDeclineCounter: () => void;
+  isCounterPending: boolean;
 }) {
+  const isCounterOffered = req.status === "counter_offered";
+
   return (
     <Box
       sx={{
         border: "1px solid",
-        borderColor: "divider",
+        borderColor: isCounterOffered ? "warning.main" : "divider",
         borderRadius: 3,
         p: 2.5,
         display: "flex",
@@ -262,20 +451,49 @@ function RequestHistoryRow({
         <Typography variant="overline" sx={{ color: "text.secondary" }}>
           {formatRange(req.startDate, req.endDate)}
         </Typography>
+        {isCounterOffered && req.proposedStartDate && req.proposedEndDate && (
+          <Typography variant="body2" sx={{ color: "warning.dark", fontWeight: 500 }}>
+            Proposed: {formatRange(req.proposedStartDate, req.proposedEndDate)}
+          </Typography>
+        )}
       </Stack>
       <Stack
         direction="row"
         spacing={1.5}
         alignItems="center"
         sx={{ flexShrink: 0 }}
+        flexWrap="wrap"
+        useFlexGap
       >
         <Chip
-          label={req.status}
+          label={isCounterOffered ? "Counter-offer" : req.status}
           size="small"
           color={STATUS_CHIP_COLOR[req.status]}
           variant="outlined"
           sx={{ textTransform: "capitalize" }}
         />
+        {isCounterOffered && (
+          <Stack direction="row" spacing={1}>
+            <Button
+              size="small"
+              variant="contained"
+              color="secondary"
+              disabled={isCounterPending}
+              onClick={onAcceptCounter}
+            >
+              Accept dates
+            </Button>
+            <Button
+              size="small"
+              variant="outlined"
+              color="error"
+              disabled={isCounterPending}
+              onClick={onDeclineCounter}
+            >
+              Decline
+            </Button>
+          </Stack>
+        )}
         {req.status === "completed" &&
           (reviewed ? (
             <Chip label="Reviewed" size="small" color="primary" variant="filled" />

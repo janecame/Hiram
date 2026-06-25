@@ -32,13 +32,13 @@ export const NotificationModel = {
     return rowToNotification(result.rows[0] as Record<string, unknown>);
   },
 
-  async findByRecipient(userId: string): Promise<Notification[]> {
+  async findByRecipient(userId: string, limit = 20): Promise<Notification[]> {
     const result = await pool.query(
       `SELECT * FROM notifications
        WHERE recipient_id = $1
        ORDER BY created_at DESC
-       LIMIT 20`,
-      [userId]
+       LIMIT $2`,
+      [userId, limit]
     );
     return result.rows.map((row) => rowToNotification(row as Record<string, unknown>));
   },

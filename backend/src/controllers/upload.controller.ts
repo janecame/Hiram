@@ -16,9 +16,10 @@ const REGION = process.env["AWS_REGION"]!;
 
 export const UploadController = {
   async presign(req: Request, res: Response): Promise<void> {
-    const { filename, contentType } = req.body as {
+    const { filename, contentType, prefix } = req.body as {
       filename?: string;
       contentType?: string;
+      prefix?: string;
     };
 
     if (!filename || !contentType) {
@@ -31,8 +32,12 @@ export const UploadController = {
       return;
     }
 
+    const ALLOWED_PREFIXES = ["items", "ids"] as const;
+    const folder = ALLOWED_PREFIXES.includes(prefix as typeof ALLOWED_PREFIXES[number])
+      ? prefix
+      : "items";
     const ext = filename.split(".").pop()?.toLowerCase() ?? "jpg";
-    const key = `items/${randomUUID()}.${ext}`;
+    const key = `${folder}/${randomUUID()}.${ext}`;
 
     const command = new PutObjectCommand({
       Bucket: BUCKET,

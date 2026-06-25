@@ -2,11 +2,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getNotifications, getUnreadCount, markAllRead, markRead } from '../api/notifications';
 import { useAuth } from '../auth/AuthContext';
 
-export function useNotifications() {
+export function useNotifications(opts?: { limit?: number }) {
   const { isAuthenticated } = useAuth();
+  const limit = opts?.limit;
   return useQuery({
-    queryKey: ['notifications'],
-    queryFn: getNotifications,
+    queryKey: limit ? ['notifications', 'all'] : ['notifications'],
+    queryFn: () => getNotifications(limit ? { limit } : undefined),
     enabled: isAuthenticated,
   });
 }

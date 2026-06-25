@@ -13,8 +13,8 @@ export const itemFormSchema = z.object({
   description: z
     .string()
     .trim()
-    .min(20, "Add a bit more detail (at least 20 characters)")
-    .max(600, "Keep the description under 600 characters"),
+    .max(600, "Keep the description under 600 characters")
+    .optional(),
   brand: z
     .string()
     .trim()
@@ -49,14 +49,22 @@ export const itemFormSchema = z.object({
     .max(400, "Keep requirements under 400 characters")
     .optional(),
   imageUrl: z.string().optional(),
-  area: z
+  // `area` is composed at submit time from addressDetail + barangay/city/province,
+  // so it is not directly validated — the PSGC fields below are the real inputs.
+  area: z.string().trim().max(160, "Location name is too long").optional(),
+  province: z.string().trim().min(1, "Select a province"),
+  city: z.string().trim().min(1, "Select a city / municipality"),
+  barangay: z.string().trim().min(1, "Select a barangay"),
+  addressDetail: z
     .string()
     .trim()
-    .min(2, "Where is the item located?")
-    .max(60, "Keep the area name short"),
+    .max(160, "Keep the address detail short")
+    .optional(),
   condition: z.enum(CONDITIONS as [string, ...string[]], {
     errorMap: () => ({ message: "Pick a condition" }),
   }),
+  lat: z.number({ invalid_type_error: "Set the item location on the map" }),
+  lng: z.number({ invalid_type_error: "Set the item location on the map" }),
 });
 
 export type ItemFormValues = z.infer<typeof itemFormSchema>;

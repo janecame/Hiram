@@ -3,17 +3,28 @@ import {
   Card,
   CardActionArea,
   Chip,
+  IconButton,
+  Menu,
+  MenuItem,
   Rating,
   Stack,
   Typography,
 } from "@mui/material";
 import type { ChipProps } from "@mui/material";
-import { MapPin, Star } from "lucide-react";
+import { MapPin, MoreVertical, Star } from "lucide-react";
+import { useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import type { Item, ItemStatus } from "../types/item";
 import { CATEGORY_LABELS, STATUS_LABELS } from "../types/item";
 import { formatDistance, formatPeso } from "../lib/format";
 import { CategoryBlock } from "./CategoryBlock";
+
+export interface CardMenuItem {
+  label: string;
+  icon?: React.ReactNode;
+  onClick: () => void;
+  danger?: boolean;
+}
 
 /**
  * Status → MUI Chip color (theme palette only, no hardcoded hex).
@@ -26,7 +37,9 @@ const STATUS_CHIP_COLOR: Record<ItemStatus, ChipProps["color"]> = {
   unavailable: "default",
 };
 
-export function ItemCard({ item }: { item: Item }) {
+export function ItemCard({ item, menuItems }: { item: Item; menuItems?: CardMenuItem[] }) {
+  const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
+
   return (
     <Card
       variant="outlined"
@@ -67,20 +80,41 @@ export function ItemCard({ item }: { item: Item }) {
               bgcolor: "background.paper",
             }}
           />
-          <Chip
-            label={STATUS_LABELS[item.status]}
-            size="small"
-            color={STATUS_CHIP_COLOR[item.status]}
-            variant={item.status === "unavailable" ? "outlined" : "filled"}
-            sx={{
-              position: "absolute",
-              top: 10,
-              right: 10,
-              ...(item.status === "unavailable" && {
+          {menuItems ? (
+            <IconButton
+              size="small"
+              sx={{
+                position: "absolute",
+                top: 6,
+                right: 6,
                 bgcolor: "background.paper",
-              }),
-            }}
-          />
+                zIndex: 2,
+                "&:hover": { bgcolor: "background.paper" },
+              }}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setMenuAnchor(e.currentTarget);
+              }}
+            >
+              <MoreVertical size={16} />
+            </IconButton>
+          ) : (
+            <Chip
+              label={STATUS_LABELS[item.status]}
+              size="small"
+              color={STATUS_CHIP_COLOR[item.status]}
+              variant={item.status === "unavailable" ? "outlined" : "filled"}
+              sx={{
+                position: "absolute",
+                top: 10,
+                right: 10,
+                ...(item.status === "unavailable" && {
+                  bgcolor: "background.paper",
+                }),
+              }}
+            />
+          )}
         </Box>
 
         <Stack spacing={1} sx={{ p: 2, flexGrow: 1 }}>
@@ -98,7 +132,9 @@ export function ItemCard({ item }: { item: Item }) {
             <Stack direction="row" spacing={0.5} alignItems="center" sx={{ minWidth: 0 }}>
               <MapPin size={14} />
               <Typography variant="caption" noWrap>
-                {item.area} · {formatDistance(item.distanceKm)}
+                {item.distanceKm != null
+                  ? `${item.area} · ${formatDistance(item.distanceKm)}`
+                  : item.area}
               </Typography>
             </Stack>
 
@@ -152,6 +188,28 @@ export function ItemCard({ item }: { item: Item }) {
           </Stack>
         </Stack>
       </CardActionArea>
+
+      {menuItems && (
+        <Menu
+          anchorEl={menuAnchor}
+          open={Boolean(menuAnchor)}
+          onClose={() => setMenuAnchor(null)}
+          anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+          transformOrigin={{ vertical: "top", horizontal: "right" }}
+          slotProps={{ paper: { sx: { minWidth: 160 } } }}
+        >
+          {menuItems.map((mi) => (
+            <MenuItem
+              key={mi.label}
+              onClick={() => { setMenuAnchor(null); mi.onClick(); }}
+              sx={mi.danger ? { color: "error.main" } : undefined}
+            >
+              {mi.icon && <Box sx={{ mr: 1.25, display: "flex" }}>{mi.icon}</Box>}
+              {mi.label}
+            </MenuItem>
+          ))}
+        </Menu>
+      )}
     </Card>
   );
 }

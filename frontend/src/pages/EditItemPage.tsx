@@ -1,5 +1,4 @@
 import {
-  Alert,
   Box,
   Button,
   CircularProgress,
@@ -10,16 +9,19 @@ import {
   Typography,
   InputAdornment,
 } from "@mui/material";
-import { ArrowLeft, ImagePlus, X } from "lucide-react";
+import { ArrowLeft, ImagePlus, LocateFixed, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { PHLocationPicker } from "../components/PHLocationPicker";
+import { LocationPicker } from "../components/LocationPicker";
 import { Link as RouterLink, Navigate, useNavigate, useParams } from "react-router-dom";
 import { itemFormSchema, type ItemFormValues } from "../schemas/item-form";
 import { useItem } from "../hooks/useItem";
 import { useUpdateItem } from "../hooks/useItems";
 import { useAuth } from "../auth/AuthContext";
 import { uploadImage } from "../api/upload";
+import { useSnackbar } from "../context/SnackbarContext";
 import {
   CATEGORIES,
   CATEGORY_LABELS,
@@ -68,8 +70,14 @@ export function EditItemPage() {
     imageUrl: item.imageUrl,
     requirements: item.requirements ?? "",
     area: item.area,
+    province: item.province ?? "",
+    city: item.city ?? "",
+    barangay: item.barangay ?? "",
+    addressDetail: item.addressDetail ?? "",
     condition: item.condition,
-  }} />;
+    lat: item.lat,
+    lng: item.lng,
+  } as ItemFormValues} />;
 }
 
 function EditForm({
@@ -81,7 +89,8 @@ function EditForm({
 }) {
   const navigate = useNavigate();
   const { mutateAsync, isPending } = useUpdateItem(itemId);
-  const [submitError, setSubmitError] = useState<string | null>(null);
+  const snackbar = useSnackbar();
+  const [detectStatus, setDetectStatus] = useState<"idle" | "loading" | "granted" | "denied">("idle");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(
@@ -94,11 +103,15 @@ function EditForm({
     handleSubmit,
     control,
     setValue,
+    watch,
     formState: { errors },
   } = useForm<ItemFormValues>({
     resolver: zodResolver(itemFormSchema),
     defaultValues,
   });
+
+  const lat = watch("lat");
+  const lng = watch("lng");
 
   useEffect(() => {
     return () => {
@@ -125,8 +138,23 @@ function EditForm({
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  function handleDetectLocation() {
+    if (!navigator.geolocation) {
+      setDetectStatus("denied");
+      return;
+    }
+    setDetectStatus("loading");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setValue("lat", pos.coords.latitude, { shouldValidate: true });
+        setValue("lng", pos.coords.longitude, { shouldValidate: true });
+        setDetectStatus("granted");
+      },
+      () => setDetectStatus("denied")
+    );
+  }
+
   const onSubmit = handleSubmit(async (values) => {
-    setSubmitError(null);
     try {
       let imageUrl = values.imageUrl;
       if (pendingFileRef.current) {
@@ -142,12 +170,28 @@ function EditForm({
         quantity: values.quantity,
         imageUrl,
         requirements: values.requirements?.trim() ? values.requirements : undefined,
-        area: values.area,
+        area: [
+          values.addressDetail?.trim(),
+          values.barangay,
+          values.city,
+          values.province,
+        ]
+          .filter(Boolean)
+          .join(", "),
+        province: values.province,
+        city: values.city,
+        barangay: values.barangay,
+        addressDetail: values.addressDetail?.trim()
+          ? values.addressDetail
+          : undefined,
         condition: values.condition as Condition,
+        lat: values.lat,
+        lng: values.lng,
       });
+      snackbar.success("Listing updated successfully.");
       navigate(`/item/${itemId}`);
     } catch (e: unknown) {
-      setSubmitError(e instanceof Error ? e.message : "Something went wrong");
+      snackbar.error(e instanceof Error ? e.message : "Failed to update listing. Please try again.");
     }
   });
 
@@ -318,14 +362,71 @@ function EditForm({
             </Typography>
           </Stack>
 
-          <TextField
-            label="Area"
-            fullWidth
-            placeholder="e.g. Bacolod City"
-            error={Boolean(errors.area)}
-            helperText={errors.area?.message}
-            {...register("area")}
+          <PHLocationPicker
+            onChange={({ province, city, barangay }) => {
+              setValue("province", province, { shouldValidate: true });
+              setValue("city", city, { shouldValidate: true });
+              setValue("barangay", barangay, { shouldValidate: true });
+            }}
+            error={Boolean(errors.province || errors.city || errors.barangay)}
+            helperText={
+              errors.province?.message ??
+              errors.city?.message ??
+              errors.barangay?.message ??
+              "Re-select to change the province, city, and barangay."
+            }
+            currentArea={defaultValues.area}
           />
+
+          <TextField
+            label="Address detail"
+            fullWidth
+            placeholder="Block / lot / street / landmark (optional)"
+            error={Boolean(errors.addressDetail)}
+            helperText={
+              errors.addressDetail?.message ??
+              "Help borrowers find the exact pickup spot."
+            }
+            {...register("addressDetail")}
+          />
+
+          <Stack spacing={1}>
+            <Button
+              type="button"
+              variant="outlined"
+              color="primary"
+              size="small"
+              startIcon={<LocateFixed size={16} />}
+              onClick={handleDetectLocation}
+              disabled={detectStatus === "loading"}
+              sx={{ alignSelf: "flex-start" }}
+            >
+              {detectStatus === "loading"
+                ? "Detecting…"
+                : detectStatus === "granted"
+                ? "Location detected — re-detect"
+                : "Use my current location"}
+            </Button>
+            {detectStatus === "denied" && (
+              <Typography variant="caption" color="error.main">
+                Location permission denied. Drop the pin on the map manually.
+              </Typography>
+            )}
+            <LocationPicker
+              lat={lat}
+              lng={lng}
+              onChange={(la, ln) => {
+                setValue("lat", la, { shouldValidate: true });
+                setValue("lng", ln, { shouldValidate: true });
+              }}
+              error={Boolean(errors.lat || errors.lng)}
+              helperText={
+                errors.lat?.message ??
+                errors.lng?.message ??
+                "Drop the pin on the exact pickup location."
+              }
+            />
+          </Stack>
 
           <Controller
             name="condition"
@@ -359,7 +460,6 @@ function EditForm({
             {...register("requirements")}
           />
 
-          {submitError && <Alert severity="error">{submitError}</Alert>}
 
           <Button
             type="submit"

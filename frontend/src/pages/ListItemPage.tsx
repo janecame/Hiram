@@ -8,15 +8,18 @@ import {
   Typography,
   InputAdornment,
 } from "@mui/material";
-import { ArrowLeft, ImagePlus, X } from "lucide-react";
+import { ArrowLeft, ImagePlus, LocateFixed, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { PHLocationPicker } from "../components/PHLocationPicker";
+import { LocationPicker } from "../components/LocationPicker";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import { itemFormSchema, type ItemFormValues } from "../schemas/item-form";
 import { useCreateItem } from "../hooks/useItems";
 import { useAuth } from "../auth/AuthContext";
 import { uploadImage } from "../api/upload";
+import { useSnackbar } from "../context/SnackbarContext";
 import {
   CATEGORIES,
   CATEGORY_LABELS,
@@ -30,16 +33,20 @@ export function ListItemPage() {
   const navigate = useNavigate();
   const { isAuthenticated, login } = useAuth();
   const { mutateAsync, isPending } = useCreateItem();
+  const snackbar = useSnackbar();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const pendingFileRef = useRef<File | null>(null);
+
+  const [detectStatus, setDetectStatus] = useState<"idle" | "loading" | "granted" | "denied">("idle");
 
   const {
     register,
     handleSubmit,
     control,
     setValue,
+    watch,
     formState: { errors },
   } = useForm<ItemFormValues>({
     resolver: zodResolver(itemFormSchema),
@@ -54,9 +61,18 @@ export function ListItemPage() {
       imageUrl: undefined,
       requirements: "",
       area: "",
+      province: "",
+      city: "",
+      barangay: "",
+      addressDetail: "",
       condition: "",
+      lat: undefined,
+      lng: undefined,
     } as unknown as ItemFormValues,
   });
+
+  const lat = watch("lat");
+  const lng = watch("lng");
 
   // Revoke the object URL when it changes or the page unmounts.
   useEffect(() => {
@@ -83,11 +99,38 @@ export function ListItemPage() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const onSubmit = handleSubmit(async (values) => {
+  function handleDetectLocation() {
+    if (!navigator.geolocation) {
+      setDetectStatus("denied");
+      return;
+    }
+    setDetectStatus("loading");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setValue("lat", pos.coords.latitude, { shouldValidate: true });
+        setValue("lng", pos.coords.longitude, { shouldValidate: true });
+        setDetectStatus("granted");
+      },
+      () => setDetectStatus("denied")
+    );
+  }
+
+  const onSubmit = handleSubmit(
+    async (values) => {
+      console.log("[ListItem] ✅ validation passed, submitting:", values);
+      try {
     let imageUrl = values.imageUrl;
     if (pendingFileRef.current) {
       imageUrl = await uploadImage(pendingFileRef.current);
     }
+    const area = [
+      values.addressDetail?.trim(),
+      values.barangay,
+      values.city,
+      values.province,
+    ]
+      .filter(Boolean)
+      .join(", ");
     await mutateAsync({
       title: values.title,
       category: values.category as Category,
@@ -100,11 +143,39 @@ export function ListItemPage() {
       requirements: values.requirements?.trim()
         ? values.requirements
         : undefined,
-      area: values.area,
+      area,
+      province: values.province,
+      city: values.city,
+      barangay: values.barangay,
+      addressDetail: values.addressDetail?.trim()
+        ? values.addressDetail
+        : undefined,
       condition: values.condition as Condition,
+      lat: values.lat,
+      lng: values.lng,
     });
-    navigate("/");
-  });
+        snackbar.success("Listing posted! Borrowers can now find your item.");
+        navigate("/");
+      } catch (err) {
+        console.error("[ListItem] ❌ createItem failed:", err);
+        snackbar.error(err instanceof Error ? err.message : "Failed to post listing. Please try again.");
+      }
+    },
+    (formErrors) => {
+      // Fires when zod validation blocks submission — this is the usual reason
+      // clicking "Post listing" appears to do nothing.
+      console.warn("[ListItem] ⛔ validation failed — form not submitted.");
+      console.table(
+        Object.fromEntries(
+          Object.entries(formErrors).map(([field, e]) => [
+            field,
+            (e as { message?: string } | undefined)?.message ?? "(invalid)",
+          ])
+        )
+      );
+      console.log("[ListItem] full error object:", formErrors);
+    }
+  );
 
   if (!isAuthenticated) {
     return (
@@ -174,7 +245,7 @@ export function ListItemPage() {
           />
 
           <TextField
-            label="Description"
+            label="Description (optional)"
             fullWidth
             multiline
             minRows={4}
@@ -298,14 +369,78 @@ export function ListItemPage() {
             </Typography>
           </Stack>
 
-          <TextField
-            label="Area"
-            fullWidth
-            placeholder="e.g. Bacolod City"
-            error={Boolean(errors.area)}
-            helperText={errors.area?.message}
-            {...register("area")}
+          <PHLocationPicker
+            onChange={({ province, city, barangay }) => {
+              setValue("province", province, { shouldValidate: true });
+              setValue("city", city, { shouldValidate: true });
+              setValue("barangay", barangay, { shouldValidate: true });
+            }}
+            error={Boolean(errors.province || errors.city || errors.barangay)}
+            helperText={
+              errors.province?.message ??
+              errors.city?.message ??
+              errors.barangay?.message ??
+              "Select the province, city, and barangay."
+            }
           />
+
+          <TextField
+            label="Address detail"
+            fullWidth
+            placeholder="Block / lot / street / landmark (optional)"
+            error={Boolean(errors.addressDetail)}
+            helperText={
+              errors.addressDetail?.message ??
+              "Help borrowers find the exact pickup spot."
+            }
+            {...register("addressDetail")}
+          />
+
+          <Stack spacing={1}>
+            <Button
+              type="button"
+              variant="outlined"
+              color="primary"
+              size="small"
+              startIcon={
+                detectStatus === "loading" ? (
+                  <span style={{ display: "flex" }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeDasharray="31.4" strokeDashoffset="10" style={{ animation: "spin 1s linear infinite", transformOrigin: "center" }} /></svg>
+                  </span>
+                ) : (
+                  <LocateFixed size={16} />
+                )
+              }
+              onClick={handleDetectLocation}
+              disabled={detectStatus === "loading"}
+              sx={{ alignSelf: "flex-start" }}
+            >
+              {detectStatus === "loading"
+                ? "Detecting…"
+                : detectStatus === "granted"
+                  ? "Location detected — re-detect"
+                  : "Use my current location"}
+            </Button>
+            {detectStatus === "denied" && (
+              <Typography variant="caption" color="error.main">
+                Location permission denied. Drop the pin on the map manually.
+              </Typography>
+            )}
+            <LocationPicker
+              lat={lat}
+              lng={lng}
+              onChange={(la, ln) => {
+                setValue("lat", la, { shouldValidate: true });
+                setValue("lng", ln, { shouldValidate: true });
+              }}
+              error={Boolean(errors.lat || errors.lng)}
+              helperText={
+                errors.lat?.message ??
+                errors.lng?.message ??
+                "Drop the pin on the exact pickup location."
+              }
+            />
+          </Stack>
 
           <Controller
             name="condition"

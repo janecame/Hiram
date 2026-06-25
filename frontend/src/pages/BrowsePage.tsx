@@ -1,6 +1,8 @@
-import { useState } from "react";
-import { Box, Container, Pagination, Stack, Typography } from "@mui/material";
+import { useState, useEffect } from "react";
+import { Box, Chip, Container, Pagination, Stack, Typography } from "@mui/material";
+import { MapPinOff } from "lucide-react";
 import { useItems } from "../hooks/useItems";
+import { useUserLocation } from "../hooks/useUserLocation";
 import type { SortKey } from "../api/items";
 import {
   FilterBar,
@@ -29,6 +31,14 @@ export function BrowsePage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
 
+  const { coords: userCoords, status: locationStatus, request: requestLocation } = useUserLocation();
+
+  // Silently request location on mount, same behaviour as before.
+  useEffect(() => {
+    requestLocation();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function resetPage() {
     setPage(1);
   }
@@ -39,6 +49,8 @@ export function BrowsePage() {
     sort,
     search,
     page,
+    userLat: userCoords?.lat,
+    userLng: userCoords?.lng,
   });
 
   const items = data?.items;
@@ -67,6 +79,16 @@ export function BrowsePage() {
         onSearchChange={(v) => { setSearch(v); resetPage(); }}
         resultCount={total}
       />
+
+      {locationStatus === "denied" && sort === "nearest" && (
+        <Chip
+          icon={<MapPinOff size={14} />}
+          label="Enable location to sort by distance"
+          size="small"
+          variant="outlined"
+          sx={{ mb: 2 }}
+        />
+      )}
 
       {isLoading ? (
         <Box sx={gridSx}>

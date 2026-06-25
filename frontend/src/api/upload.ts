@@ -2,7 +2,7 @@ function getToken(): string | null {
   return localStorage.getItem("hiram_token");
 }
 
-export async function uploadImage(file: File): Promise<string> {
+export async function uploadImage(file: File, prefix?: "items" | "ids"): Promise<string> {
   const token = getToken();
   if (!token) throw new Error("Authentication required");
 
@@ -12,7 +12,7 @@ export async function uploadImage(file: File): Promise<string> {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ filename: file.name, contentType: file.type }),
+    body: JSON.stringify({ filename: file.name, contentType: file.type, prefix }),
   });
 
   if (!presignRes.ok) throw new Error("Failed to get upload URL");

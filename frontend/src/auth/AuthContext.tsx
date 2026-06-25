@@ -48,6 +48,7 @@ function loadStoredUser(): User | null {
       address: "",
       idSubmitted: false,
       businessDocsSubmitted: false,
+      verificationStatus: "unsubmitted",
       isAdmin: payload.isAdmin ?? false,
       createdAt: "",
     };

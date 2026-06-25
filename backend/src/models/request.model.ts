@@ -1,7 +1,8 @@
 import { pool } from "../db";
-import type { BorrowRequest, NewRequestInput, RequestStatus } from "../types/request";
+import type { BorrowRequest, NewRequestInput, RequestStatus, VerificationStatus } from "../types/request";
 
-function toDateString(value: unknown): string {
+function toDateString(value: unknown): string | undefined {
+  if (value == null) return undefined;
   if (value instanceof Date) return value.toISOString().slice(0, 10);
   return value as string;
 }
@@ -14,11 +15,14 @@ function rowToRequest(row: Record<string, unknown>): BorrowRequest {
     itemArea: row["item_area"] as string,
     borrowerId: row["borrower_id"] as string,
     borrowerName: row["borrower_name"] as string,
+    borrowerVerificationStatus: (row["borrower_verification_status"] as VerificationStatus) ?? "unsubmitted",
     listerId: row["lister_id"] as string,
     listerName: row["lister_name"] as string,
     status: row["status"] as RequestStatus,
-    startDate: toDateString(row["start_date"]),
-    endDate: toDateString(row["end_date"]),
+    startDate: toDateString(row["start_date"]) as string,
+    endDate: toDateString(row["end_date"]) as string,
+    proposedStartDate: toDateString(row["proposed_start_date"]),
+    proposedEndDate: toDateString(row["proposed_end_date"]),
     useHours: row["use_hours"] as boolean,
     message: (row["message"] as string | null) ?? undefined,
     createdAt:
@@ -31,9 +35,11 @@ function rowToRequest(row: Record<string, unknown>): BorrowRequest {
 // Shared SELECT-with-joins so all methods return identically-shaped rows.
 const SELECT_WITH_JOINS = `
   SELECT r.id, r.item_id, r.borrower_id, r.lister_id, r.status,
-         r.start_date, r.end_date, r.use_hours, r.message, r.created_at,
+         r.start_date, r.end_date, r.proposed_start_date, r.proposed_end_date,
+         r.use_hours, r.message, r.created_at,
          i.title AS item_title, i.area AS item_area,
-         b.name AS borrower_name, l.name AS lister_name
+         b.name AS borrower_name, b.verification_status AS borrower_verification_status,
+         l.name AS lister_name
   FROM public.requests r
   JOIN public.items i ON i.id = r.item_id
   JOIN public.users b ON b.id = r.borrower_id
@@ -43,13 +49,35 @@ const SELECT_WITH_JOINS = `
 export const RequestModel = {
   async create(input: NewRequestInput, borrowerId: string): Promise<BorrowRequest> {
     const itemResult = await pool.query(
-      `SELECT owner_id FROM public.items WHERE id = $1`,
+      `SELECT owner_id, quantity FROM public.items WHERE id = $1`,
       [input.itemId]
     );
     if (!itemResult.rows[0]) {
       throw Object.assign(new Error("Item not found"), { status: 404 });
     }
-    const listerId = (itemResult.rows[0] as Record<string, unknown>)["owner_id"] as string;
+    const itemRow = itemResult.rows[0] as Record<string, unknown>;
+    const listerId = itemRow["owner_id"] as string;
+    const quantity = Number(itemRow["quantity"] ?? 1);
+
+    // Block creation if dates overlap an already-approved booking
+    const overlapResult = await pool.query(
+      `SELECT COUNT(*) FROM public.requests
+       WHERE item_id = $1
+         AND status = 'approved'
+         AND start_date < $2
+         AND $3 < end_date`,
+      [input.itemId, input.endDate, input.startDate]
+    );
+    const overlapCount = parseInt(
+      (overlapResult.rows[0] as Record<string, unknown>)["count"] as string,
+      10
+    );
+    if (overlapCount >= quantity) {
+      throw Object.assign(
+        new Error("This item is already booked for those dates"),
+        { status: 400 }
+      );
+    }
 
     const inserted = await pool.query(
       `INSERT INTO public.requests
@@ -107,7 +135,6 @@ export const RequestModel = {
       throw Object.assign(new Error("Request not found"), { status: 404 });
     }
 
-    // Authorization: borrower may cancel, or mark return_requested when approved.
     const isBorrower = existing.borrowerId === actorId;
     const isLister = existing.listerId === actorId;
     const borrowerAllowed: RequestStatus[] =
@@ -139,7 +166,8 @@ export const RequestModel = {
         : 1;
 
       const approvedCountResult = await pool.query(
-        `SELECT COUNT(*) FROM public.requests WHERE item_id = $1 AND status = 'approved'`,
+        `SELECT COUNT(*) FROM public.requests
+         WHERE item_id = $1 AND status = 'approved'`,
         [itemId]
       );
       const approvedCount = parseInt(
@@ -148,13 +176,90 @@ export const RequestModel = {
       );
 
       if (approvedCount >= quantity) {
+        // Only auto-decline pending requests whose dates overlap this newly approved request
         await pool.query(
           `UPDATE public.requests
            SET status = 'declined'
-           WHERE item_id = $1 AND status = 'pending' AND id <> $2`,
-          [itemId, id]
+           WHERE item_id = $1
+             AND status = 'pending'
+             AND id <> $2
+             AND start_date < $3
+             AND $4 < end_date`,
+          [itemId, id, existing.endDate, existing.startDate]
         );
       }
+    }
+
+    const updated = await this.findById(id);
+    return updated!;
+  },
+
+  async counterOffer(
+    id: string,
+    proposedStartDate: string,
+    proposedEndDate: string,
+    actorId: string
+  ): Promise<BorrowRequest> {
+    const existing = await this.findById(id);
+    if (!existing) {
+      throw Object.assign(new Error("Request not found"), { status: 404 });
+    }
+    if (existing.listerId !== actorId) {
+      throw Object.assign(new Error("Forbidden"), { status: 403 });
+    }
+    if (existing.status !== "pending" && existing.status !== "counter_offered") {
+      throw Object.assign(new Error("Cannot counter-offer at this stage"), { status: 400 });
+    }
+
+    await pool.query(
+      `UPDATE public.requests
+       SET status = 'counter_offered',
+           proposed_start_date = $1,
+           proposed_end_date   = $2
+       WHERE id = $3`,
+      [proposedStartDate, proposedEndDate, id]
+    );
+
+    const updated = await this.findById(id);
+    return updated!;
+  },
+
+  async respondToCounter(
+    id: string,
+    action: "accept" | "decline",
+    actorId: string
+  ): Promise<BorrowRequest> {
+    const existing = await this.findById(id);
+    if (!existing) {
+      throw Object.assign(new Error("Request not found"), { status: 404 });
+    }
+    if (existing.borrowerId !== actorId) {
+      throw Object.assign(new Error("Forbidden"), { status: 403 });
+    }
+    if (existing.status !== "counter_offered") {
+      throw Object.assign(new Error("No counter-offer to respond to"), { status: 400 });
+    }
+
+    if (action === "accept") {
+      await pool.query(
+        `UPDATE public.requests
+         SET status = 'approved',
+             start_date = proposed_start_date,
+             end_date   = proposed_end_date,
+             proposed_start_date = NULL,
+             proposed_end_date   = NULL
+         WHERE id = $1`,
+        [id]
+      );
+    } else {
+      await pool.query(
+        `UPDATE public.requests
+         SET status = 'declined',
+             proposed_start_date = NULL,
+             proposed_end_date   = NULL
+         WHERE id = $1`,
+        [id]
+      );
     }
 
     const updated = await this.findById(id);

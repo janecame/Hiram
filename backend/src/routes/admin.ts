@@ -8,6 +8,7 @@ router.use(requireAuth, requireAdmin);
 
 router.get("/stats", AdminController.getStats);
 router.get("/users", AdminController.listUsers);
+router.patch("/users/:id/verification", AdminController.setUserVerification);
 router.delete("/users/:id", AdminController.deleteUser);
 router.get("/items", AdminController.listItems);
 router.delete("/items/:id", AdminController.deleteItem);

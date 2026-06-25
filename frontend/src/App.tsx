@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { theme } from "./theme/theme";
 import { AuthProvider } from "./auth/AuthContext";
+import { SnackbarProvider } from "./context/SnackbarContext";
 import { Header } from "./components/Header";
 import { Footer } from "./components/Footer";
 import { BrowsePage } from "./pages/BrowsePage";
@@ -14,6 +15,7 @@ import { MyItemsPage } from "./pages/MyItemsPage";
 import { EditItemPage } from "./pages/EditItemPage";
 import { MessagesPage } from "./pages/MessagesPage";
 import { AdminPage } from "./pages/AdminPage";
+import { NotificationsPage } from "./pages/NotificationsPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -37,6 +39,7 @@ function AppLayout() {
           <Route path="/my-items" element={<MyItemsPage />} />
           <Route path="/item/:id/edit" element={<EditItemPage />} />
           <Route path="/messages" element={<MessagesPage />} />
+          <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/admin" element={<AdminPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
@@ -51,11 +54,13 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <AuthProvider>
-          <BrowserRouter>
-            <AppLayout />
-          </BrowserRouter>
-        </AuthProvider>
+        <SnackbarProvider>
+          <AuthProvider>
+            <BrowserRouter>
+              <AppLayout />
+            </BrowserRouter>
+          </AuthProvider>
+        </SnackbarProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );

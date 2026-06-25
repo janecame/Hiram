@@ -44,6 +44,10 @@ export const RequestController = {
         res.status(404).json({ error: "Item not found" });
         return;
       }
+      if ((err as { status?: number }).status === 400) {
+        res.status(400).json({ error: (err as Error).message });
+        return;
+      }
       const message = pgConstraintMessage(err);
       if (message) {
         res.status(400).json({ error: message });
@@ -120,6 +124,83 @@ export const RequestController = {
       }
       console.error("PATCH /api/requests/:id/status failed:", err);
       res.status(500).json({ error: "Failed to update request" });
+    }
+  },
+
+  async counterOffer(req: Request, res: Response): Promise<void> {
+    const { proposedStartDate, proposedEndDate } = req.body as {
+      proposedStartDate: string;
+      proposedEndDate: string;
+    };
+    try {
+      const updated = await RequestModel.counterOffer(
+        req.params["id"] as string,
+        proposedStartDate,
+        proposedEndDate,
+        req.user!.id
+      );
+      const notif = await NotificationModel.create(
+        updated.borrowerId,
+        'counter_offered',
+        `The lister proposed new dates for your "${updated.itemTitle}" request.`,
+        updated.id
+      );
+      emitToUser(updated.borrowerId, 'notification', notif);
+      res.status(200).json(updated);
+    } catch (err) {
+      const errStatus = (err as { status?: number }).status;
+      if (errStatus === 403) { res.status(403).json({ error: "Not allowed" }); return; }
+      if (errStatus === 404) { res.status(404).json({ error: "Request not found" }); return; }
+      if (errStatus === 400) { res.status(400).json({ error: (err as Error).message }); return; }
+      console.error("PATCH /api/requests/:id/counter failed:", err);
+      res.status(500).json({ error: "Failed to send counter-offer" });
+    }
+  },
+
+  async respondToCounter(req: Request, res: Response): Promise<void> {
+    const { action } = req.body as { action: "accept" | "decline" };
+    try {
+      const updated = await RequestModel.respondToCounter(
+        req.params["id"] as string,
+        action,
+        req.user!.id
+      );
+
+      if (action === "accept") {
+        // Notify lister that counter was accepted
+        const listerNotif = await NotificationModel.create(
+          updated.listerId,
+          'counter_accepted',
+          `${updated.borrowerName} accepted your counter-offer for "${updated.itemTitle}". The booking is now confirmed.`,
+          updated.id
+        );
+        emitToUser(updated.listerId, 'notification', listerNotif);
+        // Notify borrower that their booking is now approved
+        const borrowerNotif = await NotificationModel.create(
+          updated.borrowerId,
+          'request_approved',
+          `Your request for "${updated.itemTitle}" has been approved with the new dates.`,
+          updated.id
+        );
+        emitToUser(updated.borrowerId, 'notification', borrowerNotif);
+      } else {
+        const notif = await NotificationModel.create(
+          updated.listerId,
+          'counter_declined',
+          `${updated.borrowerName} declined your counter-offer for "${updated.itemTitle}".`,
+          updated.id
+        );
+        emitToUser(updated.listerId, 'notification', notif);
+      }
+
+      res.status(200).json(updated);
+    } catch (err) {
+      const errStatus = (err as { status?: number }).status;
+      if (errStatus === 403) { res.status(403).json({ error: "Not allowed" }); return; }
+      if (errStatus === 404) { res.status(404).json({ error: "Request not found" }); return; }
+      if (errStatus === 400) { res.status(400).json({ error: (err as Error).message }); return; }
+      console.error("PATCH /api/requests/:id/counter-response failed:", err);
+      res.status(500).json({ error: "Failed to respond to counter-offer" });
     }
   },
 };

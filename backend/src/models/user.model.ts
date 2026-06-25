@@ -20,12 +20,21 @@ function rowToUser(row: Record<string, unknown>): User {
     address: (row["address"] as string | null) ?? "",
     idSubmitted: row["id_submitted"] as boolean,
     businessDocsSubmitted: row["business_docs_submitted"] as boolean,
+    verificationStatus: (row["verification_status"] as User["verificationStatus"]) ?? "unsubmitted",
+    idImageUrl: (row["id_image_url"] as string | null) ?? undefined,
+    idRejectionReason: (row["id_rejection_reason"] as string | null) ?? undefined,
     isAdmin: (row["is_admin"] as boolean) ?? false,
     createdAt:
       row["created_at"] instanceof Date
         ? (row["created_at"] as Date).toISOString()
         : (row["created_at"] as string),
   };
+}
+
+/** Public view of a user — never leaks the raw government-ID image. */
+function toPublicUser(user: User): User {
+  const { idImageUrl: _idImageUrl, idRejectionReason: _idRejectionReason, ...rest } = user;
+  return rest;
 }
 
 export interface UpdateUserInput {
@@ -80,6 +89,42 @@ export const UserModel = {
       `SELECT * FROM public.users WHERE name = $1 LIMIT 1`,
       [name]
     );
+    return result.rows[0]
+      ? toPublicUser(rowToUser(result.rows[0] as Record<string, unknown>))
+      : undefined;
+  },
+
+  /** Owner re-submits a government ID: stores the image and resets review to pending. */
+  async submitId(userId: string, imageUrl: string): Promise<User> {
+    const result = await pool.query(
+      `UPDATE public.users
+         SET id_image_url = $1,
+             id_submitted = true,
+             verification_status = 'pending',
+             id_rejection_reason = NULL,
+             verified = false
+       WHERE id = $2
+       RETURNING *`,
+      [imageUrl, userId]
+    );
+    return rowToUser(result.rows[0] as Record<string, unknown>);
+  },
+
+  /** Admin decision on a submitted ID. Keeps the legacy `verified` boolean in sync. */
+  async setVerification(
+    id: string,
+    status: "pending" | "verified" | "rejected",
+    reason?: string
+  ): Promise<User | undefined> {
+    const result = await pool.query(
+      `UPDATE public.users
+         SET verification_status = $1::verification_status,
+             id_rejection_reason = $2,
+             verified = ($1 = 'verified')
+       WHERE id = $3
+       RETURNING *`,
+      [status, status === "rejected" ? (reason ?? null) : null, id]
+    );
     return result.rows[0] ? rowToUser(result.rows[0] as Record<string, unknown>) : undefined;
   },
 
@@ -113,9 +158,10 @@ export const UserModel = {
     pageSize?: number;
     search?: string;
     accountType?: "solo" | "business" | "all";
+    verificationStatus?: User["verificationStatus"] | "all";
     sort?: "newest" | "oldest" | "name_asc" | "name_desc";
   } = {}): Promise<{ users: User[]; total: number; totalPages: number }> {
-    const { page = 1, pageSize = 20, search = "", accountType, sort = "newest" } = opts;
+    const { page = 1, pageSize = 20, search = "", accountType, verificationStatus, sort = "newest" } = opts;
 
     const conditions: string[] = [];
     const params: unknown[] = [];
@@ -129,6 +175,10 @@ export const UserModel = {
     if (accountType && accountType !== "all") {
       conditions.push(`account_type = $${p++}::account_type`);
       params.push(accountType);
+    }
+    if (verificationStatus && verificationStatus !== "all") {
+      conditions.push(`verification_status = $${p++}::verification_status`);
+      params.push(verificationStatus);
     }
 
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";

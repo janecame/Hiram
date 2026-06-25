@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import {
   Avatar,
   Box,
@@ -36,9 +36,14 @@ import {
 import { ChatPopup } from "../components/ChatPopup";
 import { Link as RouterLink, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
-import { useUserByName, useUpdateUser } from "../hooks/useUser";
+import { useSnackbar } from "../context/SnackbarContext";
+import { useUserByName, useUpdateUser, useSubmitId } from "../hooks/useUser";
 import { useReviewsByUser } from "../hooks/useReviews";
-import { ACCOUNT_TYPE_LABELS, ACCOUNT_TYPES, type User } from "../types/user";
+import {
+  ACCOUNT_TYPE_LABELS,
+  ACCOUNT_TYPES,
+  type User,
+} from "../types/user";
 import type { Review } from "../types/review";
 
 export function ProfilePage() {
@@ -46,11 +51,14 @@ export function ProfilePage() {
   const name = owner ? decodeURIComponent(owner) : undefined;
   const navigate = useNavigate();
   const auth = useAuth();
+  const snackbar = useSnackbar();
 
   const { data: user, isLoading: userLoading } = useUserByName(name);
   const updateMutation = useUpdateUser(name ?? "");
+  const submitIdMutation = useSubmitId();
 
   const [editOpen, setEditOpen] = useState(false);
+  const [verifyOpen, setVerifyOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
 
   const isBusiness = user?.accountType === "business";
@@ -101,6 +109,14 @@ export function ProfilePage() {
                 size="small"
               />
             )}
+            {user?.verificationStatus === "verified" && (
+              <Chip
+                icon={<ShieldCheck size={15} />}
+                label="Verified"
+                color="success"
+                size="small"
+              />
+            )}
             {user?.address && (
               <Stack direction="row" spacing={0.5} alignItems="center" sx={{ color: "text.secondary" }}>
                 <MapPin size={14} />
@@ -111,15 +127,31 @@ export function ProfilePage() {
         </Stack>
 
         {isOwnProfile ? (
-          <Button
-            variant="outlined"
-            startIcon={<Pencil size={16} />}
-            size="small"
-            onClick={() => setEditOpen(true)}
-            sx={{ alignSelf: { xs: "flex-start", sm: "center" } }}
-          >
-            Edit Profile
-          </Button>
+          <Stack direction="row" spacing={1} sx={{ alignSelf: { xs: "flex-start", sm: "center" } }}>
+            {user && user.verificationStatus !== "verified" && (
+              <Button
+                variant="outlined"
+                color={user.verificationStatus === "rejected" ? "error" : "primary"}
+                startIcon={<ShieldCheck size={16} />}
+                size="small"
+                onClick={() => setVerifyOpen(true)}
+              >
+                {user.verificationStatus === "pending"
+                  ? "Verification Pending"
+                  : user.verificationStatus === "rejected"
+                  ? "Re-verify ID"
+                  : "Verify"}
+              </Button>
+            )}
+            <Button
+              variant="outlined"
+              startIcon={<Pencil size={16} />}
+              size="small"
+              onClick={() => setEditOpen(true)}
+            >
+              Edit Profile
+            </Button>
+          </Stack>
         ) : user && (
           <Button
             variant="outlined"
@@ -161,14 +193,15 @@ export function ProfilePage() {
               value={user.phone}
               verified={false}
             />
-            <CredentialDoc label="Government ID" submitted={user.idSubmitted} />
             {isBusiness && (
               <CredentialDoc label="Business papers" submitted={user.businessDocsSubmitted} />
             )}
           </Stack>
-          <Typography variant="caption" sx={{ color: "text.secondary", mt: 1.5, display: "block" }}>
-            Verification of credentials arrives in Phase 2 — submitted documents are not yet verified.
-          </Typography>
+          {isBusiness && (
+            <Typography variant="caption" sx={{ color: "text.secondary", mt: 1.5, display: "block" }}>
+              Business-paper verification arrives in Phase 2 — submitted documents are not yet verified.
+            </Typography>
+          )}
         </Box>
       ) : (
         <Box sx={{ mb: 4 }}>
@@ -181,24 +214,43 @@ export function ProfilePage() {
       {user && <BorrowerRatingsSection userId={user.id} />}
 
       {user && isOwnProfile && (
-        <EditProfileDialog
-          open={editOpen}
-          user={user}
-          isSaving={updateMutation.isPending}
-          error={updateMutation.error?.message}
-          onClose={() => { setEditOpen(false); updateMutation.reset(); }}
-          onSave={(data) => {
-            updateMutation.mutate(data, {
-              onSuccess: (updated) => {
-                auth.updateUser(updated);
-                setEditOpen(false);
-                if (updated.name !== user.name) {
-                  void navigate(`/profile/${encodeURIComponent(updated.name)}`);
-                }
-              },
-            });
-          }}
-        />
+        <>
+          <EditProfileDialog
+            open={editOpen}
+            user={user}
+            isSaving={updateMutation.isPending}
+            error={updateMutation.error?.message}
+            onClose={() => { setEditOpen(false); updateMutation.reset(); }}
+            onSave={(data) => {
+              updateMutation.mutate(data, {
+                onSuccess: (updated) => {
+                  auth.updateUser(updated);
+                  setEditOpen(false);
+                  snackbar.success("Profile updated.");
+                  if (updated.name !== user.name) {
+                    void navigate(`/profile/${encodeURIComponent(updated.name)}`);
+                  }
+                },
+              });
+            }}
+          />
+          <VerifyDialog
+            open={verifyOpen}
+            user={user}
+            isSubmitting={submitIdMutation.isPending}
+            error={submitIdMutation.error ? (submitIdMutation.error as Error).message : undefined}
+            onClose={() => setVerifyOpen(false)}
+            onUpload={(file) =>
+              submitIdMutation.mutate(file, {
+                onSuccess: (updated) => {
+                  auth.updateUser(updated);
+                  setVerifyOpen(false);
+                  snackbar.success("ID submitted. We'll notify you once it's reviewed.");
+                },
+              })
+            }
+          />
+        </>
       )}
 
       {user && !isOwnProfile && (
@@ -372,6 +424,84 @@ function VerificationBadge({ verified }: { verified: boolean }) {
         borderColor: verified ? undefined : "divider",
       }}
     />
+  );
+}
+
+function VerifyDialog({
+  open,
+  user,
+  isSubmitting,
+  error,
+  onClose,
+  onUpload,
+}: {
+  open: boolean;
+  user: User;
+  isSubmitting: boolean;
+  error?: string;
+  onClose: () => void;
+  onUpload: (file: File) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const status = user.verificationStatus;
+  const canUpload = status === "unsubmitted" || status === "rejected";
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+      <DialogTitle>
+        {status === "pending" ? "Verification Pending" : status === "rejected" ? "Re-verify ID" : "Verify your identity"}
+      </DialogTitle>
+      <DialogContent>
+        <Stack spacing={2} sx={{ mt: 0.5 }}>
+          {status === "pending" && (
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
+              Your ID is under review by an admin. We'll notify you once it's processed.
+            </Typography>
+          )}
+          {status === "rejected" && user.idRejectionReason && (
+            <Typography variant="body2" sx={{ color: "error.main" }}>
+              Rejected: {user.idRejectionReason}
+            </Typography>
+          )}
+          {canUpload && (
+            <>
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                Upload a clear photo of a valid government-issued ID (UMID, PhilSys, passport, driver's license).
+              </Typography>
+              <input
+                ref={inputRef}
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) onUpload(file);
+                  e.target.value = "";
+                }}
+              />
+              <Button
+                variant="outlined"
+                disabled={isSubmitting}
+                onClick={() => inputRef.current?.click()}
+                fullWidth
+              >
+                {isSubmitting ? "Uploading…" : "Choose ID image"}
+              </Button>
+            </>
+          )}
+          {error && (
+            <Typography variant="body2" sx={{ color: "error.main" }}>
+              {error}
+            </Typography>
+          )}
+        </Stack>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button onClick={onClose} color="inherit">
+          {status === "pending" ? "Close" : "Cancel"}
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 }
 

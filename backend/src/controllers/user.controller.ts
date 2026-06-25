@@ -24,4 +24,14 @@ export const UserController = {
     const user = await UserModel.update(req.user!.id, { name, email, phone, address, accountType });
     res.json(user);
   },
+
+  async submitId(req: Request, res: Response): Promise<void> {
+    const { imageUrl } = req.body as { imageUrl?: string };
+    if (!imageUrl) {
+      res.status(400).json({ error: "imageUrl is required" });
+      return;
+    }
+    const user = await UserModel.submitId(req.user!.id, imageUrl);
+    res.json(user);
+  },
 };

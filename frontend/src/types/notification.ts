@@ -4,7 +4,12 @@ export type NotificationType =
   | 'request_declined'
   | 'return_requested'
   | 'return_confirmed'
-  | 'request_cancelled';
+  | 'request_cancelled'
+  | 'id_verified'
+  | 'id_rejected'
+  | 'counter_offered'
+  | 'counter_accepted'
+  | 'counter_declined';
 
 export interface Notification {
   id: string;

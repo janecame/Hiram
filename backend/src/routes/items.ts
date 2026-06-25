@@ -8,5 +8,7 @@ router.get("/", ItemController.list);
 router.get("/:id", ItemController.detail);
 router.post("/", requireAuth, ItemController.create);
 router.patch("/:id", requireAuth, ItemController.update);
+router.patch("/:id/archive", requireAuth, ItemController.setArchive);
+router.delete("/:id", requireAuth, ItemController.remove);
 
 export default router;

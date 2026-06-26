@@ -7,12 +7,10 @@ import {
   type ReactNode,
 } from "react";
 import {
-  Box,
   Button,
   Dialog,
   DialogContent,
   DialogTitle,
-  Divider,
   Stack,
   TextField,
   ToggleButton,
@@ -185,13 +183,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               {busy ? "…" : mode === "login" ? "Log in" : "Create account"}
             </Button>
 
-            {/*<Divider />
-            <Box sx={{ textAlign: "center" }}>
-              <Typography variant="caption" color="text.secondary">
-                Seed accounts: any <code>@seed.hiram.ph</code> email with password{" "}
-                <code>password123</code>
-              </Typography>
-            </Box>*/}
           </Stack>
         </DialogContent>
       </Dialog>

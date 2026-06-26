@@ -1,5 +1,5 @@
 import { AppBar, Badge, Box, Button, Container, Divider, IconButton, List, ListItem, ListItemText, Menu, MenuItem, Popover, Toolbar, Typography } from "@mui/material";
-import { Plus, Package, LogIn, User, LayoutDashboard, ChevronDown, History, Activity, Bell, MessageSquare, List as ListIcon, ShieldCheck, Menu as MenuIcon } from "lucide-react";
+import { Plus, Package, LogIn, User, LayoutDashboard, ChevronDown, Bell, MessageSquare, List as ListIcon, ShieldCheck, Menu as MenuIcon } from "lucide-react";
 import { useState } from "react";
 import { Link as RouterLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";

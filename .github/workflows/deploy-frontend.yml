@@ -29,7 +29,7 @@ jobs:
         working-directory: frontend
         run: npm run build
         env:
-          VITE_API_BASE_URL: http://hiram-backend-prod-env.eba-j63hagpx.ap-southeast-2.elasticbeanstalk.com
+          VITE_API_BASE_URL: ""
 
       - name: Deploy to S3
         uses: aws-actions/configure-aws-credentials@v4

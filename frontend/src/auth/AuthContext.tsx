@@ -185,13 +185,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               {busy ? "…" : mode === "login" ? "Log in" : "Create account"}
             </Button>
 
-            <Divider />
+            {/*<Divider />
             <Box sx={{ textAlign: "center" }}>
               <Typography variant="caption" color="text.secondary">
                 Seed accounts: any <code>@seed.hiram.ph</code> email with password{" "}
                 <code>password123</code>
               </Typography>
-            </Box>
+            </Box>*/}
           </Stack>
         </DialogContent>
       </Dialog>

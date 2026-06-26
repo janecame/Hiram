@@ -1,4 +1,4 @@
-﻿import {
+import {
   Box,
   Button,
   Container,
@@ -117,7 +117,7 @@ export function ListItemPage() {
 
   const onSubmit = handleSubmit(
     async (values) => {
-      console.log("[ListItem] âœ… validation passed, submitting:", values);
+      console.log("[ListItem] ✅ validation passed, submitting:", values);
       try {
     let imageUrl = values.imageUrl;
     if (pendingFileRef.current) {
@@ -157,14 +157,14 @@ export function ListItemPage() {
         snackbar.success("Listing posted! Borrowers can now find your item.");
         navigate("/");
       } catch (err) {
-        console.error("[ListItem] âŒ createItem failed:", err);
+        console.error("[ListItem] ❌ createItem failed:", err);
         snackbar.error(err instanceof Error ? err.message : "Failed to post listing. Please try again.");
       }
     },
     (formErrors) => {
-      // Fires when zod validation blocks submission â€” this is the usual reason
+      // Fires when zod validation blocks submission — this is the usual reason
       // clicking "Post listing" appears to do nothing.
-      console.warn("[ListItem] â›” validation failed â€” form not submitted.");
+      console.warn("[ListItem] ? validation failed � form not submitted.");
       console.table(
         Object.fromEntries(
           Object.entries(formErrors).map(([field, e]) => [
@@ -272,7 +272,7 @@ export function ListItemPage() {
             helperText={errors.pricePerDay?.message}
             InputProps={{
               startAdornment: (
-                <InputAdornment position="start">â‚±</InputAdornment>
+                <InputAdornment position="start">₱</InputAdornment>
               ),
             }}
             {...register("pricePerDay")}
@@ -287,7 +287,7 @@ export function ListItemPage() {
             helperText={errors.pricePerHour?.message}
             InputProps={{
               startAdornment: (
-                <InputAdornment position="start">â‚±</InputAdornment>
+                <InputAdornment position="start">₱</InputAdornment>
               ),
             }}
             {...register("pricePerHour")}
@@ -365,7 +365,7 @@ export function ListItemPage() {
               sx={{ display: "none" }}
             />
             <Typography variant="caption" color="text.secondary">
-              Optional â€” no photo falls back to the category icon.
+              Optional — no photo falls back to the category icon.
             </Typography>
           </Stack>
 
@@ -416,9 +416,9 @@ export function ListItemPage() {
               sx={{ alignSelf: "flex-start" }}
             >
               {detectStatus === "loading"
-                ? "Detectingâ€¦"
+                ? "Detecting…"
                 : detectStatus === "granted"
-                  ? "Location detected â€” re-detect"
+                  ? "Location detected — re-detect"
                   : "Use my current location"}
             </Button>
             {detectStatus === "denied" && (
@@ -468,7 +468,7 @@ export function ListItemPage() {
             fullWidth
             multiline
             minRows={3}
-            placeholder="e.g. Valid ID, â‚±500 deposit, pick-up only (optional)"
+            placeholder="e.g. Valid ID, ₱500 deposit, pick-up only (optional)"
             error={Boolean(errors.requirements)}
             helperText={errors.requirements?.message}
             {...register("requirements")}
@@ -481,7 +481,7 @@ export function ListItemPage() {
             size="large"
             disabled={isPending}
           >
-            {isPending ? "Postingâ€¦" : "Post listing"}
+            {isPending ? "Posting…" : "Post listing"}
           </Button>
         </Stack>
       </Box>

@@ -5,9 +5,12 @@ dist-ssr
 .vite
 .DS_Store
 npm-debug.log*
-
+*.log
 # Build artifacts
 *.tsbuildinfo
+
+# EB log dump folder
+log/
 
 # Hook-generated logs
 .claude/bash-log.txt

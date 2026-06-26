@@ -252,14 +252,14 @@ export function Header() {
                   <ListIcon size={16} style={{ marginRight: 10 }} />
                   Items
                 </MenuItem>
-                <MenuItem onClick={() => handleNav("/history")}>
+                {/*<MenuItem onClick={() => handleNav("/history")}>
                   <History size={16} style={{ marginRight: 10 }} />
                   History
                 </MenuItem>
                 <MenuItem onClick={() => handleNav("/activities")}>
                   <Activity size={16} style={{ marginRight: 10 }} />
                   Activities
-                </MenuItem>
+                </MenuItem>*/}
                 {currentUser.isAdmin && (
                   <MenuItem onClick={() => handleNav("/admin")}>
                     <ShieldCheck size={16} style={{ marginRight: 10 }} />
@@ -340,14 +340,14 @@ export function Header() {
                   <ListIcon size={16} style={{ marginRight: 10 }} />
                   Items
                 </MenuItem>
-                <MenuItem onClick={() => handleNav("/history")}>
+                {/* <MenuItem onClick={() => handleNav("/history")}>
                   <History size={16} style={{ marginRight: 10 }} />
                   History
                 </MenuItem>
                 <MenuItem onClick={() => handleNav("/activities")}>
                   <Activity size={16} style={{ marginRight: 10 }} />
                   Activities
-                </MenuItem>
+                </MenuItem> */}
                 {currentUser.isAdmin && (
                   <MenuItem onClick={() => handleNav("/admin")}>
                     <ShieldCheck size={16} style={{ marginRight: 10 }} />

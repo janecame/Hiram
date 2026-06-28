@@ -8,6 +8,7 @@ export interface NewUserInput {
   accountType?: "solo" | "business";
   phone?: string;
   address?: string;
+  termsAcceptedAt?: string;
 }
 
 function rowToUser(row: Record<string, unknown>): User {
@@ -18,12 +19,29 @@ function rowToUser(row: Record<string, unknown>): User {
     accountType: row["account_type"] as User["accountType"],
     phone: (row["phone"] as string | null) ?? "",
     address: (row["address"] as string | null) ?? "",
+    avatarUrl: (row["avatar_url"] as string | null) ?? undefined,
+    defaultProvince: (row["default_province"] as string | null) ?? undefined,
+    defaultCity: (row["default_city"] as string | null) ?? undefined,
+    defaultBarangay: (row["default_barangay"] as string | null) ?? undefined,
+    defaultProvinceCode: (row["default_province_code"] as string | null) ?? undefined,
+    defaultCityCode: (row["default_city_code"] as string | null) ?? undefined,
+    defaultBarangayCode: (row["default_barangay_code"] as string | null) ?? undefined,
+    defaultAddressDetail: (row["default_address_detail"] as string | null) ?? undefined,
+    defaultMeetup: (row["default_meetup"] as string | null) ?? undefined,
+    defaultLat: row["default_lat"] != null ? Number(row["default_lat"]) : undefined,
+    defaultLng: row["default_lng"] != null ? Number(row["default_lng"]) : undefined,
     idSubmitted: row["id_submitted"] as boolean,
     businessDocsSubmitted: row["business_docs_submitted"] as boolean,
     verificationStatus: (row["verification_status"] as User["verificationStatus"]) ?? "unsubmitted",
     idImageUrl: (row["id_image_url"] as string | null) ?? undefined,
     idRejectionReason: (row["id_rejection_reason"] as string | null) ?? undefined,
     isAdmin: (row["is_admin"] as boolean) ?? false,
+    disabled: (row["disabled"] as boolean) ?? false,
+    disabledReason: (row["disabled_reason"] as string | null) ?? undefined,
+    termsAcceptedAt:
+      row["terms_accepted_at"] instanceof Date
+        ? (row["terms_accepted_at"] as Date).toISOString()
+        : (row["terms_accepted_at"] as string | null) ?? undefined,
     createdAt:
       row["created_at"] instanceof Date
         ? (row["created_at"] as Date).toISOString()
@@ -43,6 +61,17 @@ export interface UpdateUserInput {
   phone?: string;
   address?: string;
   accountType?: "solo" | "business";
+  avatarUrl?: string;
+  defaultProvince?: string;
+  defaultCity?: string;
+  defaultBarangay?: string;
+  defaultProvinceCode?: string;
+  defaultCityCode?: string;
+  defaultBarangayCode?: string;
+  defaultAddressDetail?: string;
+  defaultMeetup?: string;
+  defaultLat?: number;
+  defaultLng?: number;
 }
 
 export const UserModel = {
@@ -69,8 +98,8 @@ export const UserModel = {
   async create(input: NewUserInput): Promise<User> {
     const result = await pool.query(
       `INSERT INTO public.users
-         (name, email, password_hash, account_type, phone, address)
-       VALUES ($1, $2, $3, $4, $5, $6)
+         (name, email, password_hash, account_type, phone, address, terms_accepted_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
       [
         input.name,
@@ -79,6 +108,7 @@ export const UserModel = {
         input.accountType ?? "solo",
         input.phone ?? null,
         input.address ?? null,
+        input.termsAcceptedAt ?? null,
       ]
     );
     return rowToUser(result.rows[0] as Record<string, unknown>);
@@ -92,6 +122,18 @@ export const UserModel = {
     return result.rows[0]
       ? toPublicUser(rowToUser(result.rows[0] as Record<string, unknown>))
       : undefined;
+  },
+
+  async searchByName(q: string, limit = 10): Promise<User[]> {
+    const result = await pool.query(
+      `SELECT * FROM public.users
+       WHERE name ILIKE $1
+         AND disabled = false
+       ORDER BY name ASC
+       LIMIT $2`,
+      [`%${q.trim()}%`, limit]
+    );
+    return result.rows.map((row) => toPublicUser(rowToUser(row as Record<string, unknown>)));
   },
 
   /** Owner re-submits a government ID: stores the image and resets review to pending. */
@@ -132,17 +174,52 @@ export const UserModel = {
     const sets: string[] = [];
     const values: unknown[] = [];
     let idx = 1;
-    if (input.name !== undefined)        { sets.push(`name = $${idx++}`);         values.push(input.name); }
-    if (input.email !== undefined)       { sets.push(`email = $${idx++}`);        values.push(input.email); }
-    if (input.phone !== undefined)       { sets.push(`phone = $${idx++}`);        values.push(input.phone); }
-    if (input.address !== undefined)     { sets.push(`address = $${idx++}`);      values.push(input.address); }
-    if (input.accountType !== undefined) { sets.push(`account_type = $${idx++}`); values.push(input.accountType); }
+    if (input.name !== undefined)                { sets.push(`name = $${idx++}`);                 values.push(input.name); }
+    if (input.email !== undefined)               { sets.push(`email = $${idx++}`);                values.push(input.email); }
+    if (input.phone !== undefined)               { sets.push(`phone = $${idx++}`);                values.push(input.phone); }
+    if (input.address !== undefined)             { sets.push(`address = $${idx++}`);              values.push(input.address); }
+    if (input.accountType !== undefined)         { sets.push(`account_type = $${idx++}`);         values.push(input.accountType); }
+    if (input.avatarUrl !== undefined)           { sets.push(`avatar_url = $${idx++}`);           values.push(input.avatarUrl); }
+    if (input.defaultProvince !== undefined)     { sets.push(`default_province = $${idx++}`);     values.push(input.defaultProvince); }
+    if (input.defaultCity !== undefined)         { sets.push(`default_city = $${idx++}`);         values.push(input.defaultCity); }
+    if (input.defaultBarangay !== undefined)     { sets.push(`default_barangay = $${idx++}`);     values.push(input.defaultBarangay); }
+    if (input.defaultProvinceCode !== undefined) { sets.push(`default_province_code = $${idx++}`); values.push(input.defaultProvinceCode); }
+    if (input.defaultCityCode !== undefined)     { sets.push(`default_city_code = $${idx++}`);     values.push(input.defaultCityCode); }
+    if (input.defaultBarangayCode !== undefined) { sets.push(`default_barangay_code = $${idx++}`); values.push(input.defaultBarangayCode); }
+    if (input.defaultAddressDetail !== undefined){ sets.push(`default_address_detail = $${idx++}`);values.push(input.defaultAddressDetail); }
+    if (input.defaultMeetup !== undefined)       { sets.push(`default_meetup = $${idx++}`);       values.push(input.defaultMeetup); }
+    if (input.defaultLat !== undefined)          { sets.push(`default_lat = $${idx++}`);          values.push(input.defaultLat); }
+    if (input.defaultLng !== undefined)          { sets.push(`default_lng = $${idx++}`);          values.push(input.defaultLng); }
     values.push(id);
     const result = await pool.query(
       `UPDATE public.users SET ${sets.join(", ")} WHERE id = $${idx} RETURNING *`,
       values
     );
     return rowToUser(result.rows[0] as Record<string, unknown>);
+  },
+
+  /** Records that the logged-in user has accepted the current Terms and Conditions. */
+  async acceptTerms(id: string): Promise<User> {
+    const result = await pool.query(
+      `UPDATE public.users
+         SET terms_accepted_at = NOW()
+       WHERE id = $1
+       RETURNING *`,
+      [id]
+    );
+    return rowToUser(result.rows[0] as Record<string, unknown>);
+  },
+
+  async setDisabled(id: string, disabled: boolean, reason?: string): Promise<User | undefined> {
+    const result = await pool.query(
+      `UPDATE public.users
+         SET disabled = $1,
+             disabled_reason = $2
+       WHERE id = $3
+       RETURNING *`,
+      [disabled, disabled ? (reason ?? null) : null, id]
+    );
+    return result.rows[0] ? rowToUser(result.rows[0] as Record<string, unknown>) : undefined;
   },
 
   async emailExists(email: string): Promise<boolean> {

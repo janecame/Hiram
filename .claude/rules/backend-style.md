@@ -2,31 +2,42 @@
 
 ## Stack
 
-Express + TypeScript (CommonJS, ES2022 target). Run with `tsx` in dev via nodemon; compiled to `dist/` for production.
+Express + TypeScript (CommonJS, ES2022 target). Run with `tsx` in dev via nodemon; compiled to `dist/` for production. Database: PostgreSQL via `pg` pool in `backend/src/db.ts`.
 
 ## Route conventions
 
-All item routes are mounted at `/api/items` via a single `Router` in `backend/src/routes/items.ts`. Do not scatter routes across multiple files — add new resource routes as new route files and mount them in `src/index.ts`.
+Each resource has its own route file mounted in `backend/src/index.ts`. Do not put logic in route files — they only wire HTTP verbs to controller methods.
 
-Current routes:
-- `GET /api/items` — accepts `?category=` and `?sort=` query params
-- `GET /api/items/:id` — 404 with `{ error: "Item not found" }` when missing
-- `POST /api/items` — accepts `NewItemInput` body, generates `id`, `distanceKm`, `createdAt` server-side
+Current route files and mount points:
+- `routes/auth.ts` → `/api/auth`
+- `routes/items.ts` → `/api/items`
+- `routes/users.ts` → `/api/users`
+- `routes/requests.ts` → `/api/requests`
+- `routes/reviews.ts` → `/api/reviews`
+- `routes/notifications.ts` → `/api/notifications`
+- `routes/conversations.ts` → `/api/conversations`
+- `routes/upload.ts` → `/api/upload`
+- `routes/admin.ts` → `/api/admin`
 
 ## Controller / model pattern
 
 - `routes/` — only wire HTTP verbs to controller methods, no business logic.
-- `controllers/` — handle `req`/`res`; call model methods; never touch the store directly.
-- `models/` — own all data access. In Phase 1 this is the in-memory store; in Phase 2 it becomes SQL queries. Controller signatures do not change between phases.
+- `controllers/` — handle `req`/`res`; call model methods; never query the DB directly.
+- `models/` — own all SQL. All DB access goes through the `pg` pool from `db.ts`.
 
-## In-memory store
+## Auth middleware
 
-`ItemModel` in `backend/src/models/item.model.ts` holds `let store: Item[] = [...MOCK_ITEMS]`. `create()` unshifts so newest appear first. Store resets on server restart; expected for the mock phase.
+`requireAuth` and `requireAdmin` live in `backend/src/middleware/auth.ts`.
+- `requireAuth` — verifies JWT from `Authorization: Bearer <token>` header, attaches `req.user = { userId, isAdmin }`.
+- `requireAdmin` — runs after `requireAuth`, rejects non-admin users with 403.
+
+Always declare these in the route file, not the controller.
 
 ## Request/response typing
 
-- Type request bodies with `as YourType` after `req.body` — no runtime validation yet (Phase 2 will add Zod on the backend).
+- Type request bodies with `as YourType` after `req.body`.
 - Always `return` after sending a response to avoid "headers already sent" errors.
+- Ownership errors from model methods return `"not_found" | "forbidden"` — controllers map these to 404/403.
 
 ## Adding new fields to `Item`
 
@@ -34,4 +45,4 @@ See `data-model.md` for the full procedure.
 
 ## CORS
 
-CORS is enabled for all origins in dev (`cors()` with no options). Do not restrict origins until a production domain is known.
+`cors()` with no options (all origins) in dev. Production traffic goes through CloudFront, which restricts origins at the CDN level.

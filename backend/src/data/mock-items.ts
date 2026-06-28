@@ -1,6 +1,6 @@
 import type { Item } from "../types/item";
 
-type MockSeedItem = Omit<Item, "ownerId" | "archived"> & { ownerId?: string; archived?: boolean };
+type MockSeedItem = Omit<Item, "ownerId" | "archived" | "disabled" | "disabledReason"> & { ownerId?: string; archived?: boolean; disabled?: boolean };
 
 export const MOCK_ITEMS: MockSeedItem[] = [
   {

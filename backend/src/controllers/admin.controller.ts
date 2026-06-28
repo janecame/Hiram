@@ -5,6 +5,20 @@ import { ItemModel } from "../models/item.model";
 import { NotificationModel } from "../models/notification.model";
 import { emitToUser } from "../socket";
 
+async function writeAuditLog(
+  adminId: string,
+  targetType: "user" | "item",
+  targetId: string,
+  action: "disable" | "enable",
+  reason?: string
+): Promise<void> {
+  await pool.query(
+    `INSERT INTO public.admin_audit_log (admin_id, target_type, target_id, action, reason)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [adminId, targetType, targetId, action, reason ?? null]
+  );
+}
+
 export const AdminController = {
   async getStats(_req: Request, res: Response): Promise<void> {
     const [userCount, itemCount, requestCount] = await Promise.all([
@@ -69,6 +83,43 @@ export const AdminController = {
     res.json(user);
   },
 
+  async setUserDisabled(req: Request, res: Response): Promise<void> {
+    const { id } = req.params as { id: string };
+    const { disabled, reason } = req.body as { disabled?: boolean; reason?: string };
+
+    if (typeof disabled !== "boolean") {
+      res.status(400).json({ error: "disabled (boolean) is required" });
+      return;
+    }
+    if (id === req.user!.id) {
+      res.status(400).json({ error: "Cannot disable your own account" });
+      return;
+    }
+
+    const user = await UserModel.setDisabled(id, disabled, reason);
+    if (!user) { res.status(404).json({ error: "User not found" }); return; }
+
+    await writeAuditLog(req.user!.id, "user", id, disabled ? "disable" : "enable", reason);
+
+    if (disabled) {
+      const notif = await NotificationModel.create(
+        user.id,
+        "account_disabled",
+        `Your account has been disabled${reason ? `: ${reason}` : ". Please contact support."}`
+      );
+      emitToUser(user.id, "notification", notif);
+    } else {
+      const notif = await NotificationModel.create(
+        user.id,
+        "account_enabled",
+        "Your account has been re-enabled. Welcome back!"
+      );
+      emitToUser(user.id, "notification", notif);
+    }
+
+    res.json(user);
+  },
+
   async deleteUser(req: Request, res: Response): Promise<void> {
     const { id } = req.params as { id: string };
     if (id === req.user!.id) {
@@ -94,8 +145,35 @@ export const AdminController = {
       category: category as "all",
       status: status as "all",
       sort: sort as "newest" | "cheapest",
+      includeDisabled: true,
     });
     res.json(result);
+  },
+
+  async setItemDisabled(req: Request, res: Response): Promise<void> {
+    const { id } = req.params as { id: string };
+    const { disabled, reason } = req.body as { disabled?: boolean; reason?: string };
+
+    if (typeof disabled !== "boolean") {
+      res.status(400).json({ error: "disabled (boolean) is required" });
+      return;
+    }
+
+    const item = await ItemModel.setDisabled(id, disabled, reason);
+    if (!item) { res.status(404).json({ error: "Item not found" }); return; }
+
+    await writeAuditLog(req.user!.id, "item", id, disabled ? "disable" : "enable", reason);
+
+    if (disabled) {
+      const notif = await NotificationModel.create(
+        item.ownerId,
+        "item_disabled",
+        `Your listing "${item.title}" has been disabled${reason ? `: ${reason}` : "."}  Please review our guidelines.`
+      );
+      emitToUser(item.ownerId, "notification", notif);
+    }
+
+    res.json(item);
   },
 
   async deleteItem(req: Request, res: Response): Promise<void> {

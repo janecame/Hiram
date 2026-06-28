@@ -332,6 +332,7 @@ function MyRequestsTab() {
   const { data: requests, isLoading } = useRequests("borrower");
   const snackbar = useSnackbar();
   const respondToCounter = useRespondToCounter();
+  const [subTab, setSubTab] = useState(0);
   const [reviewedRequestIds, setReviewedRequestIds] = useState<Set<string>>(
     () => new Set()
   );
@@ -345,6 +346,19 @@ function MyRequestsTab() {
     });
   };
 
+  const all = requests ?? [];
+  const pending = all.filter((r) => r.status === "pending" || r.status === "counter_offered");
+  const active = all.filter((r) => r.status === "approved" || r.status === "return_requested");
+  const completed = all.filter((r) => r.status === "completed");
+
+  const visibleRequests = subTab === 0 ? pending : subTab === 1 ? active : completed;
+
+  const emptyMessages = [
+    { title: "No pending requests", message: "Items you ask to borrow will appear here." },
+    { title: "No active rentals", message: "Approved borrow requests appear here." },
+    { title: "No completed rentals", message: "Your rental history will appear here." },
+  ];
+
   if (isLoading) {
     return (
       <Stack spacing={2}>
@@ -355,44 +369,59 @@ function MyRequestsTab() {
     );
   }
 
-  if (!requests || requests.length === 0) {
-    return (
-      <EmptyState
-        title="No requests yet"
-        message="Items you ask to borrow will appear here."
-      />
+  const handleAcceptCounter = (req: BorrowRequest) =>
+    respondToCounter.mutate(
+      { id: req.id, action: "accept" },
+      {
+        onSuccess: () => snackbar.success("Counter-offer accepted. The lister will review your updated request."),
+        onError: () => snackbar.error("Could not accept counter-offer. Please try again."),
+      }
     );
-  }
+
+  const handleDeclineCounter = (req: BorrowRequest) =>
+    respondToCounter.mutate(
+      { id: req.id, action: "decline" },
+      {
+        onSuccess: () => snackbar.success("Counter-offer declined."),
+        onError: () => snackbar.error("Could not decline counter-offer. Please try again."),
+      }
+    );
 
   return (
-    <Stack spacing={2}>
-      {requests.map((req) => (
-        <RequestHistoryRow
-          key={req.id}
-          req={req}
-          reviewed={reviewedRequestIds.has(req.id)}
-          onReview={() => setReviewTarget(req)}
-          onAcceptCounter={() =>
-            respondToCounter.mutate(
-              { id: req.id, action: "accept" },
-              {
-                onSuccess: () => snackbar.success("Counter-offer accepted. The lister will review your updated request."),
-                onError: () => snackbar.error("Could not accept counter-offer. Please try again."),
-              }
-            )
-          }
-          onDeclineCounter={() =>
-            respondToCounter.mutate(
-              { id: req.id, action: "decline" },
-              {
-                onSuccess: () => snackbar.success("Counter-offer declined."),
-                onError: () => snackbar.error("Could not decline counter-offer. Please try again."),
-              }
-            )
-          }
-          isCounterPending={respondToCounter.isPending}
+    <>
+      <Tabs
+        value={subTab}
+        onChange={(_, v: number) => setSubTab(v)}
+        sx={{ mb: 2.5, borderBottom: "1px solid", borderColor: "divider" }}
+        textColor="primary"
+        indicatorColor="primary"
+      >
+        <Tab label={`Pending${pending.length > 0 ? ` (${pending.length})` : ""}`} />
+        <Tab label={`Active${active.length > 0 ? ` (${active.length})` : ""}`} />
+        <Tab label={`Completed${completed.length > 0 ? ` (${completed.length})` : ""}`} />
+      </Tabs>
+
+      {visibleRequests.length === 0 ? (
+        <EmptyState
+          title={emptyMessages[subTab]?.title ?? "No requests"}
+          message={emptyMessages[subTab]?.message ?? ""}
         />
-      ))}
+      ) : (
+        <Stack spacing={2}>
+          {visibleRequests.map((req) => (
+            <RequestHistoryRow
+              key={req.id}
+              req={req}
+              reviewed={reviewedRequestIds.has(req.id)}
+              onReview={() => setReviewTarget(req)}
+              onAcceptCounter={() => handleAcceptCounter(req)}
+              onDeclineCounter={() => handleDeclineCounter(req)}
+              isCounterPending={respondToCounter.isPending}
+            />
+          ))}
+        </Stack>
+      )}
+
       <ReviewDialog
         request={reviewTarget}
         onClose={() => setReviewTarget(null)}
@@ -402,7 +431,7 @@ function MyRequestsTab() {
           snackbar.success(`Thanks for reviewing "${req.itemTitle}"!`);
         }}
       />
-    </Stack>
+    </>
   );
 }
 

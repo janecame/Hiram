@@ -1,61 +1,77 @@
 # Architecture Rules
 
-## The data-flow law
+## Data-flow law
 
 ```
-pages / components  →  hooks/  →  api/  →  mock data
+pages / components  →  hooks/  →  api/  →  Express backend  →  PostgreSQL
 ```
 
-- **Pages and components** never import from `data/` or call `api/` directly. They only call hooks.
-- **Hooks** (`src/hooks/`) are TanStack Query wrappers. They own query keys, loading states, and mutations. They call `src/api/items.ts`.
-- **`src/api/items.ts`** is the sole integration point with the data layer. When the real backend lands, only this file changes — signatures stay the same, `fetch()` replaces the mock delay + store logic.
-- **`data/mock-items.ts`** is seed data only. Never import it from UI code.
-
-Breaking this layering defeats the one-file-swap guarantee that is the whole point of the MVP structure.
-
-## Query keys
-
-- List queries: `["items", filters]` — invalidated on `createItem` success.
-- Detail queries: `["item", id]` — disabled when `id` is undefined.
-
-Do not invent new top-level keys without updating `useCreateItem`'s `invalidateQueries` call.
+- **Pages and components** never call `api/` directly. They only call hooks.
+- **Hooks** (`src/hooks/`) are TanStack Query wrappers. They own query keys, loading states, and mutations.
+- **`src/api/`** modules use `fetch()` with a `/api` prefix — the Vite dev proxy forwards to `localhost:3001`. In production, CloudFront routes `/api/*` to Elastic Beanstalk.
+- Auth token (`hiram_token`) is read from `localStorage` by each `api/` module. `AuthContext` manages login/logout state and the login modal.
 
 ## Backend layer
 
 ```
-routes/  →  controllers/  →  models/  →  in-memory store (→ DB in Phase 2)
+routes/  →  controllers/  →  models/  →  PostgreSQL (via pg pool in db.ts)
 ```
 
-- Routes (`backend/src/routes/`) only wire HTTP verbs to controller methods.
-- Controllers (`backend/src/controllers/`) handle request/response; call model methods.
-- Models (`backend/src/models/`) own all data access and mutation logic. When Phase 2 lands, only model files change — controller signatures stay the same.
+- **Routes** (`backend/src/routes/`) only wire HTTP verbs to controller methods — no logic.
+- **Controllers** (`backend/src/controllers/`) handle `req`/`res`; call model methods; never query the DB directly.
+- **Models** (`backend/src/models/`) own all SQL. When schema changes, only model files change.
+- `requireAuth` / `requireAdmin` middleware in `backend/src/middleware/auth.ts` guards protected routes.
+
+## Real-time
+
+Socket.io server lives in `backend/src/socket.ts`. Authenticates via JWT on connect and tracks a `userId → Socket` map. Use `emitToUser(userId, event, data)` to push events server-side. Frontend connects via `useSocket` hook.
+
+## Query keys (frontend)
+
+- Item list: `["items", filters]` — invalidated on `createItem` / `deleteItem` / `setArchived` success
+- Item detail: `["item", id]` — disabled when `id` is undefined
+- Requests: `["requests", role]`
+- Notifications: `["notifications"]` and `["notifications", "unread"]`
+- Reviews: `["reviews", itemId]`
+- Conversations: `["conversations"]`, messages: `["messages", conversationId]`
 
 ## Project structure
 
 ```
 frontend/src/
-  types/      item.ts                — Item, Category, Condition types + constants
-  data/       mock-items.ts          — seed array (never imported by UI directly)
-  api/        items.ts               — fake async fns; sole swap point for real backend
-  hooks/      useItems.ts, useItem.ts — TanStack Query wrappers
-  schemas/    item-form.ts           — Zod schema for the list-item form
+  types/      item.ts, user.ts, request.ts, review.ts, notification.ts, message.ts
+  api/        items.ts, requests.ts, reviews.ts, notifications.ts, messages.ts, admin.ts, upload.ts
+  hooks/      useItems.ts, useRequests.ts, useReviews.ts, useNotifications.ts,
+              useMessages.ts, useSocket.ts, useUserLocation.ts
+  schemas/    item-form.ts           — Zod schema for list/edit item forms
   components/ Header, ItemCard, FilterBar, EmptyState, ItemCardSkeleton,
-              StampBadge, CategoryBlock
-  pages/      BrowsePage, ItemDetailPage, ListItemPage
+              StampBadge, CategoryBlock, PHLocationPicker, LocationPicker, LocationMap
+  pages/      BrowsePage, ItemDetailPage, ListItemPage, EditItemPage,
+              ProfilePage, DashboardPage, MyItemsPage, MessagesPage,
+              NotificationsPage, AdminPage
   theme/      theme.ts               — single MUI createTheme() with Hiram tokens
   lib/        format.ts              — formatPeso(), CATEGORY_VISUALS, other formatters
+  auth/       AuthContext.tsx         — login/logout state, token storage
+
 backend/src/
-  types/        item.ts              — Item / NewItemInput types (kept in sync with frontend manually)
-  data/         mock-items.ts        — same seed data served via Express
-  routes/       items.ts             — mounts GET/POST /api/items
-  controllers/  item.controller.ts   — request/response handling
-  models/       item.model.ts        — in-memory store + filter/sort logic
+  db.ts                              — pg pool (reads DATABASE_URL from env)
+  socket.ts                          — Socket.io server, emitToUser()
+  middleware/  auth.ts               — requireAuth, requireAdmin
+  types/       item.ts, user.ts, request.ts, review.ts, notification.ts, message.ts
+  routes/      items.ts, auth.ts, users.ts, requests.ts, reviews.ts,
+               notifications.ts, conversations.ts, upload.ts, admin.ts
+  controllers/ item.controller.ts, auth.controller.ts, user.controller.ts,
+               request.controller.ts, review.controller.ts, notification.controller.ts,
+               message.controller.ts, admin.controller.ts
+  models/      item.model.ts, user.model.ts, request.model.ts, review.model.ts,
+               notification.model.ts, message.model.ts
+  data/        mock-items.ts, seed.ts
 ```
 
 ## Monorepo workspaces
 
-Two packages — `frontend` and `backend` — share no source code. They share the same `Item` shape by convention, not by import. Do not create a shared `packages/` workspace unless explicitly planned.
+Two packages — `frontend` and `backend` — share no source code. They share the same type shapes by convention, not by import. Do not create a shared `packages/` workspace.
 
-## Frontend port: 5173 · Backend port: 3001
+## Ports
 
-The Vite dev proxy is not configured — the frontend mock API (`src/api/items.ts`) does not hit the backend during development. To wire them together is a Phase 2 task.
+Frontend: `5173` (Vite dev server with proxy) · Backend: `3001` (Express)

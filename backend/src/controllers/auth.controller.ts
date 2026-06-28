@@ -9,11 +9,12 @@ const TOKEN_TTL = "7d";
 
 export const AuthController = {
   async register(req: Request, res: Response): Promise<void> {
-    const { name, email, password, accountType } = req.body as {
+    const { name, email, password, accountType, termsAcceptedAt } = req.body as {
       name: string;
       email: string;
       password: string;
       accountType?: "solo" | "business";
+      termsAcceptedAt?: string;
     };
 
     if (!name || !email || !password) {
@@ -26,7 +27,7 @@ export const AuthController = {
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
-    const user = await UserModel.create({ name, email, passwordHash, accountType });
+    const user = await UserModel.create({ name, email, passwordHash, accountType, termsAcceptedAt });
     const token = jwt.sign(
       { id: user.id, email: user.email, name: user.name, isAdmin: user.isAdmin },
       JWT_SECRET,
@@ -47,6 +48,11 @@ export const AuthController = {
     const record = await UserModel.findByEmail(email);
     if (!record || !(await bcrypt.compare(password, record.passwordHash))) {
       res.status(401).json({ error: "Invalid email or password" });
+      return;
+    }
+
+    if (record.disabled) {
+      res.status(403).json({ error: "Your account has been disabled. Please contact support." });
       return;
     }
 

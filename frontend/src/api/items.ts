@@ -105,6 +105,13 @@ export async function createItem(input: NewItemInput): Promise<Item> {
   return res.json() as Promise<Item>;
 }
 
+export async function getItemSuggestions(q: string): Promise<string[]> {
+  const params = new URLSearchParams({ q });
+  const res = await fetch(`${API_BASE}/api/items/suggestions?${params}`);
+  if (!res.ok) return [];
+  return res.json() as Promise<string[]>;
+}
+
 export async function updateItem(id: string, input: Partial<NewItemInput>): Promise<Item> {
   const res = await fetch(`${API_BASE}/api/items/${id}`, {
     method: "PATCH",

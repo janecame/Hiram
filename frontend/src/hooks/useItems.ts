@@ -10,6 +10,7 @@ import {
   listItems,
   setItemArchived,
   deleteItem,
+  getItemSuggestions,
   type ListItemsFilters,
   type PaginatedItems,
 } from "../api/items";
@@ -71,6 +72,15 @@ export function useSetItemArchived() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["items"] });
     },
+  });
+}
+
+export function useItemSuggestions(query: string) {
+  return useQuery({
+    queryKey: ["items", "suggestions", query],
+    queryFn: () => getItemSuggestions(query),
+    enabled: query.trim().length >= 2,
+    staleTime: 30_000,
   });
 }
 

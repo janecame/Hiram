@@ -73,6 +73,16 @@ export const ItemController = {
     res.json(result);
   },
 
+  async suggestions(req: Request, res: Response): Promise<void> {
+    const q = (req.query["q"] as string | undefined)?.trim() ?? "";
+    if (q.length < 2) {
+      res.json([]);
+      return;
+    }
+    const results = await ItemModel.getSuggestions(q);
+    res.json(results);
+  },
+
   async remove(req: Request, res: Response): Promise<void> {
     const id = req.params["id"] as string;
     const ownerId = req.user!.id;

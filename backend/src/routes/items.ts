@@ -5,6 +5,7 @@ import { requireAuth } from "../middleware/auth";
 const router = Router();
 
 router.get("/", ItemController.list);
+router.get("/suggestions", ItemController.suggestions);
 router.get("/:id", ItemController.detail);
 router.post("/", requireAuth, ItemController.create);
 router.patch("/:id", requireAuth, ItemController.update);

@@ -1,50 +1,36 @@
 # Project Scope
 
-## Phase 1 — what is being built now
+## Current state: Phase 2+ live
 
-### Listing form (create item)
-- Brand field, price per hour rate
-- Image upload — falls back to category icon if none provided
-- Manual address/location input; map picker and auto-detect are Phase 2
+All core features are implemented and deployed on AWS (Elastic Beanstalk + CloudFront + RDS).
 
-### Item detail page (borrow)
-- Duration selector — hours or days
-- Personal requirements displayed by lister
-- Lister profile link
-- Availability status badge
-- Reviews section
-- Chat (UI only; real messaging is Phase 2)
+### What is live
 
-### Browse / item card
-- Status badge — available / unavailable / reserved
-- Rating display
+| Feature | Notes |
+|---|---|
+| Item listing (create / edit / archive / delete) | S3 image upload, location pin, PSGC address |
+| Browse & item detail | PostGIS distance, reviews, blocked dates |
+| Borrow request flow | pending → approved → return_requested → completed; auto-decline on capacity |
+| Real-time chat | Socket.io, conversations + messages tables |
+| Notifications | Triggered on request/review/verification events; Socket.io push + REST fallback |
+| JWT auth | Register / login; `requireAuth` / `requireAdmin` middleware |
+| User profiles | Verification badge, ID upload flow |
+| Admin panel | `/admin` — stats, user/item management, ID verification approve/reject |
+| Reviews | Borrower reviews item after completed rental; `item_ratings` view |
+| Image uploads | S3 pre-signed URL via `POST /api/upload` |
 
-### User profiles
-- Profile page with listed items
-- Account type: solo or business
-- Credentials: email, phone, government ID; business papers for business accounts
-- Credential verification is Phase 2
+### What is NOT implemented (pending)
 
-### Authorization
-- Guests can browse and view listings
-- Borrowing requires an account — guest is prompted to sign up or log in
-- The "Request to Borrow" flow is functional UI backed by mock data only
+| Feature | Where tracked |
+|---|---|
+| OSRM road directions (Item Detail page) | `.claude/plans/pending-plans.md` |
+| PayMongo payment integration | `.claude/plans/pending-plans.md` |
+| Damage claims | `.claude/plans/pending-plans.md` |
+| Counter-offer flow | `.claude/plans/reservation-fix-and-counter-offer.md` |
+| Map pin embed in listing form | `.claude/plans/geolocation-revision.md` |
 
-## Out of scope (Phase 1)
+### Out of scope (will not build)
 
-Real database, real auth, payments, map picker, auto-detect geolocation, real-time messaging, meet-up location confirmation, credential verification, image storage service.
-
-## Phase 2 — database migration
-
-Phase 2 wires the backend to the **local PostgreSQL** instance (already available). Full schema is in `database_architecture.md`. Migration files go in `backend/migrations/`.
-
-Steps:
-1. Add `pg` to backend; create `backend/src/db.ts` connection pool (reads `DATABASE_URL` from env).
-2. Apply migrations for `users` and `items` tables.
-3. Seed from `backend/src/data/mock-items.ts`.
-4. Replace `backend/src/models/item.model.ts` in-memory store with SQL — controllers stay the same.
-5. Enable Vite dev proxy so `frontend/src/api/items.ts` calls Express instead of mock delays.
-6. Add JWT auth (`jsonwebtoken` + `bcryptjs`): `POST /api/auth/register`, `POST /api/auth/login`; protect `/list` route.
-7. Add PostGIS; replace random `distanceKm` with `ST_Distance` at query time.
-
-See `roadmaps/` for the full phase breakdown.
+- Supabase (using raw `pg` + JWT instead)
+- Shared `packages/` workspace between frontend and backend
+- Hosted OSRM in production (demo server only if OSRM is added)

@@ -89,6 +89,13 @@ export function setUserVerification(
   });
 }
 
+export function setAdminUserDisabled(id: string, disabled: boolean, reason?: string): Promise<User> {
+  return adminFetch<User>(`/users/${id}/disable`, {
+    method: "PATCH",
+    body: JSON.stringify({ disabled, reason }),
+  });
+}
+
 export function deleteAdminUser(id: string): Promise<{ ok: boolean }> {
   return adminFetch<{ ok: boolean }>(`/users/${id}`, { method: "DELETE" });
 }
@@ -102,6 +109,13 @@ export function getAdminItems(params: AdminItemsParams = {}): Promise<AdminItems
   if (params.status)   q.set("status", params.status);
   if (params.sort)     q.set("sort", params.sort);
   return adminFetch<AdminItemsResponse>(`/items?${q.toString()}`);
+}
+
+export function setAdminItemDisabled(id: string, disabled: boolean, reason?: string): Promise<Item> {
+  return adminFetch<Item>(`/items/${id}/disable`, {
+    method: "PATCH",
+    body: JSON.stringify({ disabled, reason }),
+  });
 }
 
 export function deleteAdminItem(id: string): Promise<{ ok: boolean }> {

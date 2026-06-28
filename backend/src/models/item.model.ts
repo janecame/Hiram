@@ -8,6 +8,8 @@ export type ListFilters = {
   search?: string;
   owner?: string;
   archived?: boolean;
+  /** When true, admin-disabled items are included (admin panel use only). */
+  includeDisabled?: boolean;
   page?: number;
   pageSize?: number;
   userLat?: number;
@@ -43,6 +45,9 @@ function rowToItem(row: Record<string, unknown>): Item {
     province: (row["province"] as string | null) ?? undefined,
     city: (row["city"] as string | null) ?? undefined,
     barangay: (row["barangay"] as string | null) ?? undefined,
+    provinceCode: (row["province_code"] as string | null) ?? undefined,
+    cityCode: (row["city_code"] as string | null) ?? undefined,
+    barangayCode: (row["barangay_code"] as string | null) ?? undefined,
     addressDetail: (row["address_detail"] as string | null) ?? undefined,
     area: row["area"] as string,
     owner: row["owner"] as string,
@@ -54,6 +59,8 @@ function rowToItem(row: Record<string, unknown>): Item {
     requirements: (row["requirements"] as string | null) ?? undefined,
     quantity: row["quantity"] != null ? Number(row["quantity"]) : 1,
     archived: row["archived"] as boolean,
+    disabled: (row["disabled"] as boolean) ?? false,
+    disabledReason: (row["disabled_reason"] as string | null) ?? undefined,
     createdAt:
       row["created_at"] instanceof Date
         ? (row["created_at"] as Date).toISOString()
@@ -85,6 +92,11 @@ export const ItemModel = {
       conditions.push(`i.archived = true`);
     } else {
       conditions.push(`i.archived = false`);
+    }
+
+    // Always exclude admin-disabled items from public queries.
+    if (!filters.includeDisabled) {
+      conditions.push(`i.disabled = false`);
     }
 
     if (category && category !== "all") {
@@ -214,6 +226,9 @@ export const ItemModel = {
          city           = COALESCE($16, city),
          barangay       = COALESCE($17, barangay),
          address_detail = $18,
+         province_code  = COALESCE($19, province_code),
+         city_code      = COALESCE($20, city_code),
+         barangay_code  = COALESCE($21, barangay_code),
          location       = CASE
                             WHEN $13::float IS NOT NULL AND $14::float IS NOT NULL
                             THEN ST_SetSRID(ST_MakePoint($13::float, $14::float), 4326)::geography
@@ -240,6 +255,9 @@ export const ItemModel = {
         input.city ?? null,
         input.barangay ?? null,
         input.addressDetail ?? null,
+        input.provinceCode ?? null,
+        input.cityCode ?? null,
+        input.barangayCode ?? null,
       ]
     );
     const row = result.rows[0] as Record<string, unknown>;
@@ -257,6 +275,22 @@ export const ItemModel = {
       [id]
     );
     return (result.rowCount ?? 0) > 0;
+  },
+
+  async setDisabled(id: string, disabled: boolean, reason?: string): Promise<Item | undefined> {
+    const result = await pool.query(
+      `UPDATE public.items
+         SET disabled = $1,
+             disabled_reason = $2
+       WHERE id = $3
+       RETURNING *, ST_Y(location::geometry) AS lat, ST_X(location::geometry) AS lng`,
+      [disabled, disabled ? (reason ?? null) : null, id]
+    );
+    if (!result.rows[0]) return undefined;
+    const row = result.rows[0] as Record<string, unknown>;
+    const ownerResult = await pool.query(`SELECT name FROM public.users WHERE id = $1`, [row["owner_id"]]);
+    row["owner"] = ownerResult.rows[0]?.["name"] ?? "";
+    return rowToItem(row);
   },
 
   async setArchived(
@@ -302,18 +336,32 @@ export const ItemModel = {
     return "ok";
   },
 
+  async getSuggestions(query: string): Promise<string[]> {
+    const result = await pool.query(
+      `SELECT DISTINCT title
+       FROM public.items
+       WHERE title ILIKE $1
+         AND archived = false
+         AND disabled = false
+       ORDER BY title
+       LIMIT 8`,
+      [`%${query.trim()}%`]
+    );
+    return result.rows.map((r: Record<string, unknown>) => r["title"] as string);
+  },
+
   async create(input: NewItemInput, ownerId: string): Promise<Item> {
     const hasLocation = input.lat != null && input.lng != null;
     const locationParam = hasLocation
-      ? `ST_SetSRID(ST_MakePoint($17, $18), 4326)::geography`
+      ? `ST_SetSRID(ST_MakePoint($20, $21), 4326)::geography`
       : `NULL`;
 
     const result = await pool.query(
       `INSERT INTO public.items
          (owner_id, title, category, condition, description, brand,
           price_per_day, price_per_hour, image_url, area, requirements, quantity,
-          province, city, barangay, address_detail, location)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,${locationParam})
+          province, city, barangay, address_detail, province_code, city_code, barangay_code, location)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,${locationParam})
        RETURNING *, ST_Y(location::geometry) AS lat, ST_X(location::geometry) AS lng`,
       [
         ownerId,
@@ -332,6 +380,9 @@ export const ItemModel = {
         input.city ?? null,
         input.barangay ?? null,
         input.addressDetail ?? null,
+        input.provinceCode ?? null,
+        input.cityCode ?? null,
+        input.barangayCode ?? null,
         ...(hasLocation ? [input.lng, input.lat] : []),
       ]
     );

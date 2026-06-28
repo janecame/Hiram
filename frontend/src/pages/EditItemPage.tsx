@@ -21,6 +21,7 @@ import { useItem } from "../hooks/useItem";
 import { useUpdateItem } from "../hooks/useItems";
 import { useAuth } from "../auth/AuthContext";
 import { uploadImage } from "../api/upload";
+import { validateImageFile } from "../lib/uploadValidation";
 import { useSnackbar } from "../context/SnackbarContext";
 import {
   CATEGORIES,
@@ -73,6 +74,9 @@ export function EditItemPage() {
     province: item.province ?? "",
     city: item.city ?? "",
     barangay: item.barangay ?? "",
+    provinceCode: item.provinceCode ?? "",
+    cityCode: item.cityCode ?? "",
+    barangayCode: item.barangayCode ?? "",
     addressDetail: item.addressDetail ?? "",
     condition: item.condition,
     lat: item.lat,
@@ -123,6 +127,12 @@ function EditForm({
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const validationError = validateImageFile(file);
+    if (validationError) {
+      snackbar.error(validationError);
+      e.target.value = "";
+      return;
+    }
     if (imagePreview?.startsWith("blob:")) URL.revokeObjectURL(imagePreview);
     pendingFileRef.current = file;
     const url = URL.createObjectURL(file);
@@ -181,6 +191,9 @@ function EditForm({
         province: values.province,
         city: values.city,
         barangay: values.barangay,
+        provinceCode: values.provinceCode || undefined,
+        cityCode: values.cityCode || undefined,
+        barangayCode: values.barangayCode || undefined,
         addressDetail: values.addressDetail?.trim()
           ? values.addressDetail
           : undefined,
@@ -363,10 +376,19 @@ function EditForm({
           </Stack>
 
           <PHLocationPicker
-            onChange={({ province, city, barangay }) => {
+            initialProvinceCode={defaultValues.provinceCode || undefined}
+            initialCityCode={defaultValues.cityCode || undefined}
+            initialBarangayCode={defaultValues.barangayCode || undefined}
+            initialProvinceName={defaultValues.province || undefined}
+            initialCityName={defaultValues.city || undefined}
+            initialBarangayName={defaultValues.barangay || undefined}
+            onChange={({ province, city, barangay, provinceCode, cityCode, barangayCode }) => {
               setValue("province", province, { shouldValidate: true });
               setValue("city", city, { shouldValidate: true });
               setValue("barangay", barangay, { shouldValidate: true });
+              setValue("provinceCode", provinceCode);
+              setValue("cityCode", cityCode);
+              setValue("barangayCode", barangayCode);
             }}
             error={Boolean(errors.province || errors.city || errors.barangay)}
             helperText={

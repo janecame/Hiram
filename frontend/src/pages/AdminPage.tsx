@@ -25,7 +25,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { Search, ShieldCheck, Trash2 } from "lucide-react";
+import { Ban, CheckCircle, Search, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -33,11 +33,11 @@ import { useAuth } from "../auth/AuthContext";
 import { useSnackbar } from "../context/SnackbarContext";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import {
-  deleteAdminItem,
-  deleteAdminUser,
   getAdminItems,
   getAdminStats,
   getAdminUsers,
+  setAdminItemDisabled,
+  setAdminUserDisabled,
   setUserVerification,
   type AdminItemsParams,
   type AdminUsersParams,
@@ -49,6 +49,7 @@ import {
   type User,
   type VerificationStatus,
 } from "../types/user";
+import type { Item } from "../types/item";
 
 const VERIFICATION_CHIP_COLOR: Record<
   VerificationStatus,
@@ -131,6 +132,65 @@ function StatsBar() {
   );
 }
 
+// ── Shared DisableDialog ─────────────────────────────────────────────────────
+
+interface DisableDialogState {
+  id: string;
+  name: string;
+  type: "user" | "item";
+}
+
+function DisableDialog({
+  state,
+  onClose,
+  onConfirm,
+  isPending,
+}: {
+  state: DisableDialogState | null;
+  onClose: () => void;
+  onConfirm: (reason: string) => void;
+  isPending: boolean;
+}) {
+  const [reason, setReason] = useState("");
+  return (
+    <Dialog open={Boolean(state)} onClose={onClose} maxWidth="xs" fullWidth>
+      <DialogTitle>
+        Disable {state?.type === "user" ? "user" : "listing"} — {state?.name}
+      </DialogTitle>
+      <DialogContent>
+        <Stack spacing={2} sx={{ mt: 1 }}>
+          <Typography variant="body2" color="text.secondary">
+            The {state?.type === "user" ? "user will be blocked from logging in" : "listing will be hidden from browse"}.
+            The owner will be notified.
+          </Typography>
+          <TextField
+            label="Reason (shown to the user)"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            size="small"
+            fullWidth
+            multiline
+            minRows={2}
+          />
+        </Stack>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button onClick={onClose} color="inherit" disabled={isPending}>Cancel</Button>
+        <Button
+          variant="contained"
+          color="error"
+          disabled={isPending}
+          onClick={() => { onConfirm(reason); setReason(""); }}
+        >
+          {isPending ? "Disabling…" : "Disable"}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+// ── Users Tab ────────────────────────────────────────────────────────────────
+
 function UsersTab() {
   const qc = useQueryClient();
   const snackbar = useSnackbar();
@@ -142,6 +202,7 @@ function UsersTab() {
   const [page, setPage] = useState(1);
   const [reviewUser, setReviewUser] = useState<User | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [disableTarget, setDisableTarget] = useState<DisableDialogState | null>(null);
   const [confirmState, setConfirmState] = useState<{
     title: string;
     message: string;
@@ -156,13 +217,15 @@ function UsersTab() {
     queryFn: () => getAdminUsers(params),
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: deleteAdminUser,
+  const disableMutation = useMutation({
+    mutationFn: ({ id, disabled, reason }: { id: string; disabled: boolean; reason?: string }) =>
+      setAdminUserDisabled(id, disabled, reason),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["admin", "users"] }),
   });
 
-  const bulkDeleteMutation = useMutation({
-    mutationFn: (ids: string[]) => Promise.all(ids.map(deleteAdminUser)),
+  const bulkDisableMutation = useMutation({
+    mutationFn: (ids: string[]) =>
+      Promise.all(ids.map((id) => setAdminUserDisabled(id, true))),
     onSuccess: () => {
       setSelected(new Set());
       void qc.invalidateQueries({ queryKey: ["admin", "users"] });
@@ -203,22 +266,22 @@ function UsersTab() {
     });
   };
 
-  const handleBulkDelete = () => {
+  const handleBulkDisable = () => {
     const ids = [...selected];
     const label = `${ids.length} user${ids.length > 1 ? "s" : ""}`;
     setConfirmState({
-      title: `Delete ${label}?`,
-      message: `${label} will be permanently removed. This cannot be undone.`,
-      confirmLabel: `Delete ${label}`,
+      title: `Disable ${label}?`,
+      message: `${label} will be blocked from logging in. You can re-enable them anytime.`,
+      confirmLabel: `Disable ${label}`,
       onConfirm: () => {
-        bulkDeleteMutation.mutate(ids, {
+        bulkDisableMutation.mutate(ids, {
           onSuccess: () => {
             setConfirmState(null);
-            snackbar.success(`${label} deleted.`);
+            snackbar.success(`${label} disabled.`);
           },
           onError: () => {
             setConfirmState(null);
-            snackbar.error("Could not delete users. Please try again.");
+            snackbar.error("Could not disable users. Please try again.");
           },
         });
       },
@@ -283,11 +346,11 @@ function UsersTab() {
               size="small"
               color="error"
               variant="contained"
-              startIcon={<Trash2 size={14} />}
-              disabled={bulkDeleteMutation.isPending}
-              onClick={handleBulkDelete}
+              startIcon={<Ban size={14} />}
+              disabled={bulkDisableMutation.isPending}
+              onClick={handleBulkDisable}
             >
-              Delete Selected ({selected.size})
+              Disable Selected ({selected.size})
             </Button>
           )}
           <Typography variant="body2" color="text.secondary">
@@ -315,6 +378,7 @@ function UsersTab() {
               <TableCell>Email</TableCell>
               <TableCell>Account</TableCell>
               <TableCell>ID Verification</TableCell>
+              <TableCell>Status</TableCell>
               <TableCell>Joined</TableCell>
               <TableCell align="right">Actions</TableCell>
             </TableRow>
@@ -326,7 +390,7 @@ function UsersTab() {
                 hover
                 selected={selected.has(u.id)}
                 onClick={() => { if (!u.isAdmin) toggleRow(u.id); }}
-                sx={{ cursor: u.isAdmin ? "default" : "pointer" }}
+                sx={{ cursor: u.isAdmin ? "default" : "pointer", opacity: u.disabled ? 0.6 : 1 }}
               >
                 <TableCell padding="checkbox" onClick={(e) => e.stopPropagation()}>
                   <Checkbox
@@ -339,12 +403,7 @@ function UsersTab() {
                 <TableCell>
                   {u.name}
                   {u.isAdmin && (
-                    <Chip
-                      label="admin"
-                      size="small"
-                      color="primary"
-                      sx={{ ml: 1, height: 18, fontSize: 10 }}
-                    />
+                    <Chip label="admin" size="small" color="primary" sx={{ ml: 1, height: 18, fontSize: 10 }} />
                   )}
                 </TableCell>
                 <TableCell>{u.email}</TableCell>
@@ -360,48 +419,58 @@ function UsersTab() {
                   />
                 </TableCell>
                 <TableCell>
+                  <Chip
+                    label={u.disabled ? "Disabled" : "Active"}
+                    size="small"
+                    color={u.disabled ? "error" : "success"}
+                    variant="outlined"
+                  />
+                </TableCell>
+                <TableCell>
                   <Typography variant="caption">
                     {new Date(u.createdAt).toLocaleDateString("en-PH")}
                   </Typography>
                 </TableCell>
                 <TableCell align="right" onClick={(e) => e.stopPropagation()}>
-                  <Button
-                    size="small"
-                    startIcon={<ShieldCheck size={14} />}
-                    disabled={u.verificationStatus === "unsubmitted"}
-                    onClick={() => setReviewUser(u)}
-                    sx={{ mr: 1 }}
-                  >
-                    Review
-                  </Button>
-                  <Button
-                    size="small"
-                    color="error"
-                    startIcon={<Trash2 size={14} />}
-                    disabled={u.isAdmin || deleteMutation.isPending}
-                    onClick={() => {
-                      const name = u.name;
-                      setConfirmState({
-                        title: `Delete "${name}"?`,
-                        message: "This user will be permanently removed. This cannot be undone.",
-                        confirmLabel: "Delete user",
-                        onConfirm: () => {
-                          deleteMutation.mutate(u.id, {
-                            onSuccess: () => {
-                              setConfirmState(null);
-                              snackbar.success(`User "${name}" deleted.`);
-                            },
-                            onError: () => {
-                              setConfirmState(null);
-                              snackbar.error("Could not delete user. Please try again.");
-                            },
-                          });
-                        },
-                      });
-                    }}
-                  >
-                    Delete
-                  </Button>
+                  <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                    <Button
+                      size="small"
+                      startIcon={<ShieldCheck size={14} />}
+                      disabled={u.verificationStatus === "unsubmitted"}
+                      onClick={() => setReviewUser(u)}
+                    >
+                      Review
+                    </Button>
+                    {u.disabled ? (
+                      <Button
+                        size="small"
+                        color="success"
+                        startIcon={<CheckCircle size={14} />}
+                        disabled={u.isAdmin || disableMutation.isPending}
+                        onClick={() =>
+                          disableMutation.mutate(
+                            { id: u.id, disabled: false },
+                            {
+                              onSuccess: () => snackbar.success(`User "${u.name}" re-enabled.`),
+                              onError: () => snackbar.error("Could not re-enable user."),
+                            }
+                          )
+                        }
+                      >
+                        Enable
+                      </Button>
+                    ) : (
+                      <Button
+                        size="small"
+                        color="error"
+                        startIcon={<Ban size={14} />}
+                        disabled={u.isAdmin || disableMutation.isPending}
+                        onClick={() => setDisableTarget({ id: u.id, name: u.name, type: "user" })}
+                      >
+                        Disable
+                      </Button>
+                    )}
+                  </Stack>
                 </TableCell>
               </TableRow>
             ))}
@@ -420,12 +489,32 @@ function UsersTab() {
           );
         }}
       />
+
+      <DisableDialog
+        state={disableTarget}
+        onClose={() => setDisableTarget(null)}
+        isPending={disableMutation.isPending}
+        onConfirm={(reason) => {
+          if (!disableTarget) return;
+          disableMutation.mutate(
+            { id: disableTarget.id, disabled: true, reason },
+            {
+              onSuccess: () => {
+                setDisableTarget(null);
+                snackbar.success(`User "${disableTarget.name}" disabled.`);
+              },
+              onError: () => snackbar.error("Could not disable user. Please try again."),
+            }
+          );
+        }}
+      />
+
       <ConfirmDialog
         open={confirmState !== null}
         title={confirmState?.title ?? ""}
         message={confirmState?.message ?? ""}
         confirmLabel={confirmState?.confirmLabel}
-        loading={deleteMutation.isPending || bulkDeleteMutation.isPending}
+        loading={bulkDisableMutation.isPending}
         onConfirm={() => confirmState?.onConfirm()}
         onCancel={() => setConfirmState(null)}
       />
@@ -557,6 +646,8 @@ function ReviewIdDialog({
   );
 }
 
+// ── Items Tab ────────────────────────────────────────────────────────────────
+
 function ItemsTab() {
   const qc = useQueryClient();
   const snackbar = useSnackbar();
@@ -566,6 +657,7 @@ function ItemsTab() {
   const [sort, setSort] = useState("newest");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [disableTarget, setDisableTarget] = useState<DisableDialogState | null>(null);
   const [confirmState, setConfirmState] = useState<{
     title: string;
     message: string;
@@ -580,13 +672,15 @@ function ItemsTab() {
     queryFn: () => getAdminItems(params),
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: deleteAdminItem,
+  const disableMutation = useMutation({
+    mutationFn: ({ id, disabled, reason }: { id: string; disabled: boolean; reason?: string }) =>
+      setAdminItemDisabled(id, disabled, reason),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["admin", "items"] }),
   });
 
-  const bulkDeleteMutation = useMutation({
-    mutationFn: (ids: string[]) => Promise.all(ids.map(deleteAdminItem)),
+  const bulkDisableMutation = useMutation({
+    mutationFn: (ids: string[]) =>
+      Promise.all(ids.map((id) => setAdminItemDisabled(id, true))),
     onSuccess: () => {
       setSelected(new Set());
       void qc.invalidateQueries({ queryKey: ["admin", "items"] });
@@ -627,22 +721,22 @@ function ItemsTab() {
     });
   };
 
-  const handleBulkDelete = () => {
+  const handleBulkDisable = () => {
     const ids = [...selected];
     const label = `${ids.length} item${ids.length > 1 ? "s" : ""}`;
     setConfirmState({
-      title: `Delete ${label}?`,
-      message: `${label} will be permanently removed. This cannot be undone.`,
-      confirmLabel: `Delete ${label}`,
+      title: `Disable ${label}?`,
+      message: `${label} will be hidden from browse. Owners will be notified.`,
+      confirmLabel: `Disable ${label}`,
       onConfirm: () => {
-        bulkDeleteMutation.mutate(ids, {
+        bulkDisableMutation.mutate(ids, {
           onSuccess: () => {
             setConfirmState(null);
-            snackbar.success(`${label} deleted.`);
+            snackbar.success(`${label} disabled.`);
           },
           onError: () => {
             setConfirmState(null);
-            snackbar.error("Could not delete items. Please try again.");
+            snackbar.error("Could not disable items. Please try again.");
           },
         });
       },
@@ -706,11 +800,11 @@ function ItemsTab() {
               size="small"
               color="error"
               variant="contained"
-              startIcon={<Trash2 size={14} />}
-              disabled={bulkDeleteMutation.isPending}
-              onClick={handleBulkDelete}
+              startIcon={<Ban size={14} />}
+              disabled={bulkDisableMutation.isPending}
+              onClick={handleBulkDisable}
             >
-              Delete Selected ({selected.size})
+              Disable Selected ({selected.size})
             </Button>
           )}
           <Typography variant="body2" color="text.secondary">
@@ -738,18 +832,19 @@ function ItemsTab() {
               <TableCell>Owner</TableCell>
               <TableCell>Category</TableCell>
               <TableCell>Status</TableCell>
+              <TableCell>Admin</TableCell>
               <TableCell>Price / day</TableCell>
               <TableCell align="right">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {data?.items.map((item) => (
+            {data?.items.map((item: Item) => (
               <TableRow
                 key={item.id}
                 hover
                 selected={selected.has(item.id)}
                 onClick={() => toggleRow(item.id)}
-                sx={{ cursor: "pointer" }}
+                sx={{ cursor: "pointer", opacity: item.disabled ? 0.6 : 1 }}
               >
                 <TableCell padding="checkbox" onClick={(e) => e.stopPropagation()}>
                   <Checkbox
@@ -772,43 +867,71 @@ function ItemsTab() {
                   />
                 </TableCell>
                 <TableCell>
+                  <Chip
+                    label={item.disabled ? "Disabled" : "Active"}
+                    size="small"
+                    color={item.disabled ? "error" : "success"}
+                    variant="outlined"
+                  />
+                </TableCell>
+                <TableCell>
                   <Typography variant="caption">₱{item.pricePerDay}/day</Typography>
                 </TableCell>
                 <TableCell align="right" onClick={(e) => e.stopPropagation()}>
-                  <Button
-                    size="small"
-                    color="error"
-                    startIcon={<Trash2 size={14} />}
-                    disabled={deleteMutation.isPending}
-                    onClick={() => {
-                      const title = item.title;
-                      setConfirmState({
-                        title: `Delete "${title}"?`,
-                        message: "This listing will be permanently removed. This cannot be undone.",
-                        confirmLabel: "Delete item",
-                        onConfirm: () => {
-                          deleteMutation.mutate(item.id, {
-                            onSuccess: () => {
-                              setConfirmState(null);
-                              snackbar.success(`"${title}" deleted.`);
-                            },
-                            onError: () => {
-                              setConfirmState(null);
-                              snackbar.error("Could not delete item. Please try again.");
-                            },
-                          });
-                        },
-                      });
-                    }}
-                  >
-                    Delete
-                  </Button>
+                  {item.disabled ? (
+                    <Button
+                      size="small"
+                      color="success"
+                      startIcon={<CheckCircle size={14} />}
+                      disabled={disableMutation.isPending}
+                      onClick={() =>
+                        disableMutation.mutate(
+                          { id: item.id, disabled: false },
+                          {
+                            onSuccess: () => snackbar.success(`"${item.title}" re-enabled.`),
+                            onError: () => snackbar.error("Could not re-enable item."),
+                          }
+                        )
+                      }
+                    >
+                      Enable
+                    </Button>
+                  ) : (
+                    <Button
+                      size="small"
+                      color="error"
+                      startIcon={<Ban size={14} />}
+                      disabled={disableMutation.isPending}
+                      onClick={() => setDisableTarget({ id: item.id, name: item.title, type: "item" })}
+                    >
+                      Disable
+                    </Button>
+                  )}
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       )}
+
+      <DisableDialog
+        state={disableTarget}
+        onClose={() => setDisableTarget(null)}
+        isPending={disableMutation.isPending}
+        onConfirm={(reason) => {
+          if (!disableTarget) return;
+          disableMutation.mutate(
+            { id: disableTarget.id, disabled: true, reason },
+            {
+              onSuccess: () => {
+                setDisableTarget(null);
+                snackbar.success(`"${disableTarget.name}" disabled.`);
+              },
+              onError: () => snackbar.error("Could not disable item. Please try again."),
+            }
+          );
+        }}
+      />
 
       {(data?.totalPages ?? 1) > 1 && (
         <Box sx={{ display: "flex", justifyContent: "center", py: 2 }}>
@@ -826,7 +949,7 @@ function ItemsTab() {
         title={confirmState?.title ?? ""}
         message={confirmState?.message ?? ""}
         confirmLabel={confirmState?.confirmLabel}
-        loading={deleteMutation.isPending || bulkDeleteMutation.isPending}
+        loading={bulkDisableMutation.isPending}
         onConfirm={() => confirmState?.onConfirm()}
         onCancel={() => setConfirmState(null)}
       />

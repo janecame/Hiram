@@ -55,6 +55,11 @@ export const itemFormSchema = z.object({
   province: z.string().trim().min(1, "Select a province"),
   city: z.string().trim().min(1, "Select a city / municipality"),
   barangay: z.string().trim().min(1, "Select a barangay"),
+  // Stable PSGC codes carried alongside the names so the dropdowns can be
+  // pre-selected on edit. Not user-facing, hence optional.
+  provinceCode: z.string().optional(),
+  cityCode: z.string().optional(),
+  barangayCode: z.string().optional(),
   addressDetail: z
     .string()
     .trim()

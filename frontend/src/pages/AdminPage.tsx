@@ -42,6 +42,8 @@ import {
   type AdminItemsParams,
   type AdminUsersParams,
 } from "../api/admin";
+import { useAdminReports, useAdminSetReportStatus } from "../hooks/useReports";
+import { REPORT_REASON_LABELS, REPORT_STATUS_LABELS, type ReportStatus } from "../types/report";
 import { CATEGORIES, CATEGORY_LABELS, STATUSES, STATUS_LABELS } from "../types/item";
 import {
   VERIFICATION_STATUSES,
@@ -88,10 +90,12 @@ export function AdminPage() {
         >
           <Tab label="Users" />
           <Tab label="Items" />
+          <Tab label="Reports" />
         </Tabs>
         <Box>
           {tab === 0 && <UsersTab />}
           {tab === 1 && <ItemsTab />}
+          {tab === 2 && <ReportsTab />}
         </Box>
       </Paper>
     </Container>
@@ -954,5 +958,211 @@ function ItemsTab() {
         onCancel={() => setConfirmState(null)}
       />
     </Box>
+  );
+}
+
+// ── Reports Tab ──────────────────────────────────────────────────────────────
+
+const REPORT_STATUS_CHIP_COLOR: Record<ReportStatus, "default" | "warning" | "success" | "error"> = {
+  open: "warning",
+  resolved: "success",
+  dismissed: "default",
+};
+
+function ReportsTab() {
+  const snackbar = useSnackbar();
+  const [statusFilter, setStatusFilter] = useState<ReportStatus | "all">("all");
+  const [reviewTarget, setReviewTarget] = useState<import("../types/report").Report | null>(null);
+  const { data: reports, isLoading } = useAdminReports(
+    statusFilter === "all" ? undefined : statusFilter
+  );
+  const setStatus = useAdminSetReportStatus();
+
+  return (
+    <Box>
+      <Box sx={{ display: "flex", gap: 2, p: 2, flexWrap: "wrap", alignItems: "center" }}>
+        <Select
+          size="small"
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as ReportStatus | "all")}
+          sx={{ minWidth: 160 }}
+        >
+          <MenuItem value="all">All statuses</MenuItem>
+          <MenuItem value="open">Open</MenuItem>
+          <MenuItem value="resolved">Resolved</MenuItem>
+          <MenuItem value="dismissed">Dismissed</MenuItem>
+        </Select>
+        <Typography variant="body2" color="text.secondary" sx={{ ml: "auto" }}>
+          {reports?.length ?? "—"} reports
+        </Typography>
+      </Box>
+
+      {isLoading ? (
+        <Box p={4} textAlign="center"><CircularProgress /></Box>
+      ) : (
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>Item</TableCell>
+              <TableCell>Reporter</TableCell>
+              <TableCell>Reported</TableCell>
+              <TableCell>Reason</TableCell>
+              <TableCell>Description</TableCell>
+              <TableCell>Status</TableCell>
+              <TableCell>Date</TableCell>
+              <TableCell align="right">Actions</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {(reports ?? []).map((report) => (
+              <TableRow key={report.id} hover>
+                <TableCell>{report.itemTitle}</TableCell>
+                <TableCell>{report.reporterName}</TableCell>
+                <TableCell>{report.reportedName}</TableCell>
+                <TableCell>
+                  <Chip
+                    label={REPORT_REASON_LABELS[report.reason]}
+                    size="small"
+                    variant="outlined"
+                  />
+                </TableCell>
+                <TableCell sx={{ maxWidth: 240 }}>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      display: "-webkit-box",
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: "vertical",
+                      overflow: "hidden",
+                    }}
+                  >
+                    {report.description}
+                  </Typography>
+                </TableCell>
+                <TableCell>
+                  <Chip
+                    label={REPORT_STATUS_LABELS[report.status]}
+                    size="small"
+                    color={REPORT_STATUS_CHIP_COLOR[report.status]}
+                    variant={report.status === "open" ? "filled" : "outlined"}
+                  />
+                </TableCell>
+                <TableCell>
+                  <Typography variant="caption">
+                    {new Date(report.createdAt).toLocaleDateString("en-PH")}
+                  </Typography>
+                </TableCell>
+                <TableCell align="right">
+                  {report.status === "open" && (
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={() => setReviewTarget(report)}
+                    >
+                      Review
+                    </Button>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+
+      <ReportReviewDialog
+        report={reviewTarget}
+        onClose={() => setReviewTarget(null)}
+        onSubmit={(note, status) =>
+          setStatus.mutate(
+            { id: reviewTarget!.id, status, note },
+            {
+              onSuccess: () => {
+                setReviewTarget(null);
+                snackbar.success(
+                  status === "resolved" ? "Report marked as resolved." : "Report dismissed."
+                );
+              },
+              onError: (e) => snackbar.error((e as Error).message ?? "Could not update report."),
+            }
+          )
+        }
+        isPending={setStatus.isPending}
+      />
+    </Box>
+  );
+}
+
+function ReportReviewDialog({
+  report,
+  onClose,
+  onSubmit,
+  isPending,
+}: {
+  report: import("../types/report").Report | null;
+  onClose: () => void;
+  onSubmit: (note: string, status: ReportStatus) => void;
+  isPending: boolean;
+}) {
+  const [note, setNote] = useState("");
+  const [error, setError] = useState("");
+
+  const open = report !== null;
+
+  const handleAction = (status: ReportStatus) => {
+    if (!note.trim()) { setError("Please write a resolution note before submitting."); return; }
+    setError("");
+    onSubmit(note.trim(), status);
+  };
+
+  const handleClose = () => { setNote(""); setError(""); onClose(); };
+
+  return (
+    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+      <DialogTitle>Review report</DialogTitle>
+      <DialogContent>
+        <Stack spacing={2} sx={{ mt: 1 }}>
+          {report && (
+            <Box sx={{ p: 1.5, bgcolor: "background.default", borderRadius: 2, border: "1px solid", borderColor: "divider" }}>
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>{report.itemTitle}</Typography>
+              <Typography variant="body2" color="text.secondary">
+                {report.reporterName} reported {report.reportedName} — {REPORT_REASON_LABELS[report.reason]}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, fontStyle: "italic" }}>
+                "{report.description}"
+              </Typography>
+            </Box>
+          )}
+          <TextField
+            label="Resolution note (sent to the reporter)"
+            multiline
+            minRows={3}
+            fullWidth
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Describe how this report was handled…"
+          />
+          {error && <Typography variant="body2" color="error">{error}</Typography>}
+        </Stack>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button onClick={handleClose} color="inherit" disabled={isPending}>Cancel</Button>
+        <Button
+          variant="outlined"
+          color="inherit"
+          disabled={isPending}
+          onClick={() => handleAction("dismissed")}
+        >
+          {isPending ? "Saving…" : "Dismiss"}
+        </Button>
+        <Button
+          variant="contained"
+          color="success"
+          disabled={isPending}
+          onClick={() => handleAction("resolved")}
+        >
+          {isPending ? "Saving…" : "Resolve"}
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 }

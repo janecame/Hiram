@@ -42,74 +42,6 @@ Seed accounts: any `@seed.hiram.ph` email with password `password123`.
 
 ---
 
-## Architecture
-
-### Data flow
-
-```
-pages / components  →  hooks/  →  api/  →  Express backend  →  PostgreSQL
-```
-
-- Pages/components call hooks only. Never call `api/` directly from a component.
-- Hooks (`src/hooks/`) are TanStack Query wrappers owning query keys, loading states, and mutations.
-- `src/api/` modules use `fetch()` with a `/api` prefix — the Vite proxy forwards to `localhost:3001`.
-- Auth token (`hiram_token`) is read from `localStorage` by each `api/` module. `AuthContext` manages login/logout state and the login modal.
-
-### Backend layers
-
-```
-routes/  →  controllers/  →  models/  →  PostgreSQL (via `pg` pool in db.ts)
-```
-
-- Routes wire HTTP verbs to controller methods only — no logic.
-- Controllers handle `req`/`res`; call model methods; never query the DB directly.
-- Models own all SQL. When schema changes, only model files change.
-- `requireAuth` / `requireAdmin` middleware in `backend/src/middleware/auth.ts` guards protected routes.
-
-### Real-time
-
-Socket.io server lives in `backend/src/socket.ts`. It authenticates via JWT on connect and tracks a `userId → Socket` map. Use `emitToUser(userId, event, data)` to push events server-side. The frontend connects via `useSocket` hook.
-
-### Image uploads
-
-`POST /api/upload` returns a pre-signed S3 URL. The frontend uploads directly to S3 and stores the resulting URL on the item.
-
-### Database
-
-16 migration files in `backend/migrations/`, applied in filename order by `npm run migrate`. The runner is idempotent — safe to re-run. Live schema: `users`, `items`, `requests`, `blocked_dates`, `reviews`, `notifications`, `messages`, `conversations` (+ enums and indexes). The `items` table has a `quantity` column added post-migration via the runner directly.
-
-### Routes summary
-
-| Prefix | Notes |
-|---|---|
-| `/api/auth` | `POST /register`, `POST /login` |
-| `/api/users` | Profile CRUD, ID verification upload |
-| `/api/items` | CRUD, archive, owner filter, paginated |
-| `/api/items/:id/blocked-dates` | Lister-set unavailability |
-| `/api/requests` | Borrow requests, counter-offer, status transitions |
-| `/api/reviews` | Item + user reviews |
-| `/api/notifications` | Per-user notification feed |
-| `/api/conversations` | DM threads + messages |
-| `/api/upload` | S3 pre-signed URL generation |
-| `/api/admin` | User verification management |
-
-### Frontend pages
-
-| Route | Page |
-|---|---|
-| `/` | BrowsePage |
-| `/item/:id` | ItemDetailPage |
-| `/list` | ListItemPage |
-| `/item/:id/edit` | EditItemPage |
-| `/profile/:owner` | ProfilePage |
-| `/dashboard` | DashboardPage (active requests) |
-| `/my-items` | MyItemsPage |
-| `/messages` | MessagesPage |
-| `/notifications` | NotificationsPage |
-| `/admin` | AdminPage (admin only, no footer) |
-
----
-
 ## Prompt Clarification Rule
 
 - **Before acting on any user prompt**, paraphrase the request back to the user and ask: "Is this what you mean?" (or similar). Wait for confirmation before proceeding with implementation.
@@ -132,6 +64,38 @@ Socket.io server lives in `backend/src/socket.ts`. It authenticates via JWT on c
 
 - Every **File** and **Line** must be a clickable markdown link.
 - Group lines under each file if multiple files were edited.
+
+---
+
+## Code Quality
+
+- Choose the right data structure and algorithm for the problem; avoid over-engineering.
+- No external libraries unless absolutely necessary — check `package.json` for correct existing versions.
+- Apply least privilege: do not expose data or scope beyond what is needed.
+- Avoid redundancy unless it genuinely improves usability.
+- Watch for oversized files that need a refactor, and for syntax or style that mismatches the rest of the codebase.
+
+## Comments & Style
+
+- Comments are one-liners, one sentence only.
+- No emojis or special characters in comments.
+- Markdown files use kebab-case naming (e.g. `some-description-changes.md`).
+
+## Version Control
+
+- Commit after significant changes with clear, focused messages. Keep commits atomic.
+- Never auto-push any branch — always wait for explicit instruction.
+- Do not auto-commit activity logs or docs files.
+
+## AI Restrictions
+
+- Never output customer personal data: names, contacts, account numbers, or transactions.
+- Never output credentials: passwords, API keys, tokens, or connection strings.
+
+## Activity Log
+
+- When completing a significant task or when context is getting complex, write a brief entry to `docs/activity-log.md` summarizing what changed and why.
+- Do not commit `docs/activity-log.md` automatically.
 
 ---
 

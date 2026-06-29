@@ -12,7 +12,8 @@ export type NotificationType =
   | 'counter_declined'
   | 'account_disabled'
   | 'account_enabled'
-  | 'item_disabled';
+  | 'item_disabled'
+  | 'report_filed';
 
 export interface Notification {
   id: string;

@@ -10,6 +10,7 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
+  MenuItem,
   Rating,
   Skeleton,
   Stack,
@@ -23,7 +24,9 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { useCounterOffer, useRequests, useUpdateRequestStatus } from "../hooks/useRequests";
 import { useCreateReview, useReviewsByUser } from "../hooks/useReviews";
+import { useCreateReport, useMyReports } from "../hooks/useReports";
 import type { BorrowRequest } from "../types/request";
+import { REPORT_REASONS, REPORT_REASON_LABELS, REPORT_STATUS_LABELS } from "../types/report";
 import { EmptyState } from "../components/EmptyState";
 
 function formatRange(start: string, end: string): string {
@@ -49,6 +52,8 @@ export function DashboardPage() {
   const [ratedRequestIds, setRatedRequestIds] = useState<Set<string>>(() => new Set());
   const [reviewTarget, setReviewTarget] = useState<BorrowRequest | null>(null);
   const [counterTarget, setCounterTarget] = useState<BorrowRequest | null>(null);
+  const [reportTarget, setReportTarget] = useState<BorrowRequest | null>(null);
+  const { data: myReports, isLoading: myReportsLoading } = useMyReports();
 
   const markRated = (requestId: string) => {
     setRatedRequestIds((prev) => {
@@ -102,6 +107,7 @@ export function DashboardPage() {
           }
         />
         <Tab label="Completed" />
+        <Tab label="My Reports" />
       </Tabs>
 
       {/* ── Tab 0: Pending ─────────────────────────────────────── */}
@@ -243,6 +249,14 @@ export function DashboardPage() {
                     >
                       Mark as Returned
                     </Button>
+                    <Button
+                      variant="outlined"
+                      color="error"
+                      size="small"
+                      onClick={() => setReportTarget(req)}
+                    >
+                      Report
+                    </Button>
                   </Stack>
                 </RequestRow>
               ))}
@@ -266,7 +280,7 @@ export function DashboardPage() {
               {completed.map((req) => (
                 <RequestRow key={req.id}>
                   <RequestDetails req={req} />
-                  <Stack sx={{ flexShrink: 0 }} justifyContent="center">
+                  <Stack sx={{ flexShrink: 0 }} justifyContent="center" spacing={1}>
                     {ratedRequestIds.has(req.id) ? (
                       <Chip label="Rated" size="small" color="primary" variant="filled" />
                     ) : (
@@ -274,8 +288,78 @@ export function DashboardPage() {
                         Rate Borrower
                       </Button>
                     )}
+                    <Button
+                      variant="outlined"
+                      color="error"
+                      size="small"
+                      onClick={() => setReportTarget(req)}
+                    >
+                      Report
+                    </Button>
                   </Stack>
                 </RequestRow>
+              ))}
+            </Stack>
+          )}
+        </>
+      )}
+
+      {/* ── Tab 3: My Reports ─────────────────────────────────── */}
+      {tab === 3 && (
+        <>
+          {myReportsLoading ? (
+            <LoadingRows />
+          ) : !myReports || myReports.length === 0 ? (
+            <EmptyState
+              title="No reports filed"
+              message="Reports you file on rentals will appear here with their status."
+            />
+          ) : (
+            <Stack spacing={2}>
+              {myReports.map((r) => (
+                <Box
+                  key={r.id}
+                  sx={{
+                    border: "1px solid",
+                    borderColor: "divider",
+                    borderRadius: 3,
+                    p: 2.5,
+                    display: "flex",
+                    flexDirection: { xs: "column", sm: "row" },
+                    gap: 2,
+                    alignItems: { xs: "stretch", sm: "center" },
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <Stack spacing={0.5} sx={{ minWidth: 0, flex: 1 }}>
+                    <Typography variant="h6" component="h3" sx={{ lineHeight: 1.2 }}>
+                      {r.itemTitle}
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                      Reported: {r.reportedName}
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                      Reason: {REPORT_REASON_LABELS[r.reason]}
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      sx={{ color: "text.secondary", fontStyle: "italic", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                    >
+                      "{r.description}"
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: "text.disabled" }}>
+                      {new Date(r.createdAt).toLocaleDateString("en-PH", { year: "numeric", month: "short", day: "numeric" })}
+                    </Typography>
+                  </Stack>
+                  <Box sx={{ flexShrink: 0 }}>
+                    <Chip
+                      label={REPORT_STATUS_LABELS[r.status]}
+                      size="small"
+                      color={r.status === "open" ? "warning" : r.status === "resolved" ? "success" : "default"}
+                      variant="filled"
+                    />
+                  </Box>
+                </Box>
               ))}
             </Stack>
           )}
@@ -297,6 +381,16 @@ export function DashboardPage() {
         onSuccess={() => {
           setCounterTarget(null);
           snackbar.success("Counter-offer sent to borrower.");
+        }}
+      />
+      <ReportDialog
+        request={reportTarget}
+        reportedId={reportTarget?.borrowerId ?? null}
+        reportedLabel={reportTarget ? `borrower ${reportTarget.borrowerName}` : ""}
+        onClose={() => setReportTarget(null)}
+        onSuccess={() => {
+          setReportTarget(null);
+          snackbar.success("Report submitted. Admin will review it.");
         }}
       />
     </Container>
@@ -490,6 +584,101 @@ function CounterOfferDialog({
           onClick={() => void handleSubmit()}
         >
           {counterOffer.isPending ? "Sending…" : "Send counter-offer"}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+export function ReportDialog({
+  request,
+  reportedId,
+  reportedLabel,
+  onClose,
+  onSuccess,
+}: {
+  request: BorrowRequest | null;
+  reportedId: string | null;
+  reportedLabel: string;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const createReport = useCreateReport();
+  const [reason, setReason] = useState<string>("");
+  const [description, setDescription] = useState("");
+  const [error, setError] = useState("");
+
+  const open = request !== null && reportedId !== null;
+
+  useEffect(() => {
+    if (open) {
+      setReason("");
+      setDescription("");
+      setError("");
+    }
+  }, [open, request?.id]);
+
+  const handleSubmit = async () => {
+    if (!request || !reportedId || !reason || !description.trim()) return;
+    setError("");
+    try {
+      await createReport.mutateAsync({
+        requestId: request.id,
+        reportedId,
+        reason: reason as import("../types/report").ReportReason,
+        description: description.trim(),
+      });
+      onSuccess();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Something went wrong");
+    }
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+      <DialogTitle>Report {reportedLabel}</DialogTitle>
+      <DialogContent>
+        <Stack spacing={2.5} sx={{ mt: 1 }}>
+          {request && (
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
+              Report an issue with the rental of "{request.itemTitle}". Admin will review your report.
+            </Typography>
+          )}
+          <TextField
+            select
+            label="Reason"
+            fullWidth
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            size="small"
+          >
+            {REPORT_REASONS.map((r) => (
+              <MenuItem key={r} value={r}>{REPORT_REASON_LABELS[r]}</MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            label="Description"
+            multiline
+            minRows={3}
+            fullWidth
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Describe what happened…"
+          />
+          {error && <Alert severity="error">{error}</Alert>}
+        </Stack>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button onClick={onClose} color="inherit" disabled={createReport.isPending}>
+          Cancel
+        </Button>
+        <Button
+          variant="contained"
+          color="error"
+          disabled={!reason || !description.trim() || createReport.isPending}
+          onClick={() => void handleSubmit()}
+        >
+          {createReport.isPending ? "Submitting…" : "Submit report"}
         </Button>
       </DialogActions>
     </Dialog>

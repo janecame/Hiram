@@ -10,7 +10,7 @@ All core features are implemented and deployed on AWS (Elastic Beanstalk + Cloud
 |---|---|
 | Item listing (create / edit / archive / delete) | S3 image upload, location pin, PSGC address |
 | Browse & item detail | PostGIS distance, reviews, blocked dates |
-| Borrow request flow | pending → approved → return_requested → completed; auto-decline on capacity |
+| Borrow request flow | pending → approved → return_requested → completed; overlap-aware auto-decline; counter-offer flow |
 | Real-time chat | Socket.io, conversations + messages tables |
 | Notifications | Triggered on request/review/verification events; Socket.io push + REST fallback |
 | JWT auth | Register / login; `requireAuth` / `requireAdmin` middleware |
@@ -26,7 +26,6 @@ All core features are implemented and deployed on AWS (Elastic Beanstalk + Cloud
 | OSRM road directions (Item Detail page) | `.claude/plans/pending-plans.md` |
 | PayMongo payment integration | `.claude/plans/pending-plans.md` |
 | Damage claims | `.claude/plans/pending-plans.md` |
-| Counter-offer flow | `.claude/plans/reservation-fix-and-counter-offer.md` |
 | Map pin embed in listing form | `.claude/plans/geolocation-revision.md` |
 
 ### Out of scope (will not build)

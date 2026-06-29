@@ -43,6 +43,10 @@ Always declare these in the route file, not the controller.
 
 See `data-model.md` for the full procedure.
 
+## Image uploads
+
+`POST /api/upload` returns a pre-signed S3 URL. The frontend uploads directly to S3 and stores the resulting URL on the item. Route: `routes/upload.ts`.
+
 ## CORS
 
 `cors()` with no options (all origins) in dev. Production traffic goes through CloudFront, which restricts origins at the CDN level.

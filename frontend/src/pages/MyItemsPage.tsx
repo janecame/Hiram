@@ -30,6 +30,7 @@ import { ItemCard } from "../components/ItemCard";
 import type { CardMenuItem } from "../components/ItemCard";
 import { ItemCardSkeleton } from "../components/ItemCardSkeleton";
 import { EmptyState } from "../components/EmptyState";
+import { ReportDialog } from "./DashboardPage";
 import type { BorrowRequest, RequestStatus } from "../types/request";
 import type { Item } from "../types/item";
 
@@ -328,15 +329,25 @@ function DeleteConfirmDialog({
   );
 }
 
+type RequestFilter = "all" | "pending" | "active" | "completed";
+
+const FILTER_LABELS: Record<RequestFilter, string> = {
+  all: "All",
+  pending: "Pending",
+  active: "Active",
+  completed: "Completed",
+};
+
 function MyRequestsTab() {
   const { data: requests, isLoading } = useRequests("borrower");
   const snackbar = useSnackbar();
   const respondToCounter = useRespondToCounter();
-  const [subTab, setSubTab] = useState(0);
+  const [filter, setFilter] = useState<RequestFilter>("all");
   const [reviewedRequestIds, setReviewedRequestIds] = useState<Set<string>>(
     () => new Set()
   );
   const [reviewTarget, setReviewTarget] = useState<BorrowRequest | null>(null);
+  const [reportTarget, setReportTarget] = useState<BorrowRequest | null>(null);
 
   const markReviewed = (requestId: string) => {
     setReviewedRequestIds((prev) => {
@@ -347,17 +358,12 @@ function MyRequestsTab() {
   };
 
   const all = requests ?? [];
-  const pending = all.filter((r) => r.status === "pending" || r.status === "counter_offered");
-  const active = all.filter((r) => r.status === "approved" || r.status === "return_requested");
-  const completed = all.filter((r) => r.status === "completed");
-
-  const visibleRequests = subTab === 0 ? pending : subTab === 1 ? active : completed;
-
-  const emptyMessages = [
-    { title: "No pending requests", message: "Items you ask to borrow will appear here." },
-    { title: "No active rentals", message: "Approved borrow requests appear here." },
-    { title: "No completed rentals", message: "Your rental history will appear here." },
-  ];
+  const visibleRequests = all.filter((r) => {
+    if (filter === "pending") return r.status === "pending" || r.status === "counter_offered";
+    if (filter === "active") return r.status === "approved" || r.status === "return_requested";
+    if (filter === "completed") return r.status === "completed";
+    return true;
+  });
 
   if (isLoading) {
     return (
@@ -389,22 +395,23 @@ function MyRequestsTab() {
 
   return (
     <>
-      <Tabs
-        value={subTab}
-        onChange={(_, v: number) => setSubTab(v)}
-        sx={{ mb: 2.5, borderBottom: "1px solid", borderColor: "divider" }}
-        textColor="primary"
-        indicatorColor="primary"
-      >
-        <Tab label={`Pending${pending.length > 0 ? ` (${pending.length})` : ""}`} />
-        <Tab label={`Active${active.length > 0 ? ` (${active.length})` : ""}`} />
-        <Tab label={`Completed${completed.length > 0 ? ` (${completed.length})` : ""}`} />
-      </Tabs>
+      <Stack direction="row" spacing={1} sx={{ mb: 2.5 }} flexWrap="wrap" useFlexGap>
+        {(Object.keys(FILTER_LABELS) as RequestFilter[]).map((f) => (
+          <Chip
+            key={f}
+            label={FILTER_LABELS[f]}
+            onClick={() => setFilter(f)}
+            color={filter === f ? "primary" : "default"}
+            variant={filter === f ? "filled" : "outlined"}
+            sx={{ fontWeight: filter === f ? 600 : 400 }}
+          />
+        ))}
+      </Stack>
 
       {visibleRequests.length === 0 ? (
         <EmptyState
-          title={emptyMessages[subTab]?.title ?? "No requests"}
-          message={emptyMessages[subTab]?.message ?? ""}
+          title={filter === "all" ? "No requests yet" : `No ${FILTER_LABELS[filter].toLowerCase()} requests`}
+          message={filter === "all" ? "Items you ask to borrow will appear here." : ""}
         />
       ) : (
         <Stack spacing={2}>
@@ -414,6 +421,7 @@ function MyRequestsTab() {
               req={req}
               reviewed={reviewedRequestIds.has(req.id)}
               onReview={() => setReviewTarget(req)}
+              onReport={() => setReportTarget(req)}
               onAcceptCounter={() => handleAcceptCounter(req)}
               onDeclineCounter={() => handleDeclineCounter(req)}
               isCounterPending={respondToCounter.isPending}
@@ -431,6 +439,16 @@ function MyRequestsTab() {
           snackbar.success(`Thanks for reviewing "${req.itemTitle}"!`);
         }}
       />
+      <ReportDialog
+        request={reportTarget}
+        reportedId={reportTarget?.listerId ?? null}
+        reportedLabel={reportTarget ? `lister ${reportTarget.listerName}` : ""}
+        onClose={() => setReportTarget(null)}
+        onSuccess={() => {
+          setReportTarget(null);
+          snackbar.success("Report submitted. Admin will review it.");
+        }}
+      />
     </>
   );
 }
@@ -439,6 +457,7 @@ function RequestHistoryRow({
   req,
   reviewed,
   onReview,
+  onReport,
   onAcceptCounter,
   onDeclineCounter,
   isCounterPending,
@@ -446,6 +465,7 @@ function RequestHistoryRow({
   req: BorrowRequest;
   reviewed: boolean;
   onReview: () => void;
+  onReport: () => void;
   onAcceptCounter: () => void;
   onDeclineCounter: () => void;
   isCounterPending: boolean;
@@ -531,6 +551,11 @@ function RequestHistoryRow({
               Leave a Review
             </Button>
           ))}
+        {(req.status === "approved" || req.status === "completed") && (
+          <Button size="small" variant="outlined" color="error" onClick={onReport}>
+            Report
+          </Button>
+        )}
       </Stack>
     </Box>
   );

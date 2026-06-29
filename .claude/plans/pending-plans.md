@@ -27,6 +27,19 @@ Features not yet implemented. Implement in a new session with a focused plan.
 
 ---
 
+### CI Pipeline — GitHub Actions for Branch Safety
+
+**What:** Two GitHub Actions workflow files to automate build validation and deployment.
+
+- `.github/workflows/ci-pre-master.yml` — runs `npm run build` on every push to `pre-master-branch`. Must pass before a PR to `master` can be merged (enforced via GitHub branch protection on `master`).
+- `.github/workflows/deploy-master.yml` — runs build + deploys to Elastic Beanstalk on merge to `master`.
+
+**Why:** Currently there is no automated gate between `pre-master-branch` and `master`. Build errors or TypeScript failures can reach production undetected.
+
+**Note:** For now this is done manually — run `npm run build` before opening a PR to master.
+
+---
+
 ### PayMongo — Payment Integration
 
 **What:** Allow borrowers to pay for a rental through PayMongo (Philippine payment gateway). Covers GCash, Maya, card payments.
@@ -35,21 +48,11 @@ Features not yet implemented. Implement in a new session with a focused plan.
 
 ---
 
-### Damage Claims
+### Reports (replaces Damage Claims)
 
-**What:** After a rental is marked completed, allow the lister to file a damage claim against the borrower. Requires a new `claims` table, an admin review flow, and notifications to both parties.
+**Status: Implemented 2026-06-29.**
 
-**Scope:** Not started. Depends on the payment system for any monetary resolution.
+Either lister or borrower can file a report on an approved or completed rental. Admin reviews and resolves/dismisses in the Reports tab of the admin panel. No monetary resolution — that depends on PayMongo when added.
 
 ---
 
-## Completed (formerly out of scope)
-
-| Feature | Notes |
-|---|---|
-| ✅ WebSocket / real-time chat | Socket.io live — `backend/src/socket.ts`, `/api/conversations` |
-| ✅ PostGIS / real distance calculation | `ST_Distance` in `item.model.ts` `findAll`; `ST_MakePoint` on create/update |
-| ✅ Admin tooling | `/api/admin` routes, `AdminPage.tsx`, `requireAdmin` middleware |
-| ✅ Credential verification | ID upload → pending → verified/rejected flow, admin review panel |
-| ✅ Image upload service | S3 pre-signed URL via `POST /api/upload`, stored on item/user |
-| ✅ Mutual reviews (lister rating borrower) | Reviews table supports both directions; currently borrower-only by convention |

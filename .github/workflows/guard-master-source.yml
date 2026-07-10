@@ -1,0 +1,20 @@
+name: Guard Master Source
+
+# Runs on PRs into master and fails unless the source branch is pre-master-branch,
+# so master can only ever be merged into from the staging branch.
+on:
+  pull_request:
+    branches: [master]
+
+jobs:
+  check-source:
+    name: Only pre-master-branch into master
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Enforce pre-master-branch as the only source
+        run: |
+          if [ "${{ github.head_ref }}" != "pre-master-branch" ]; then
+            echo "::error::PRs into master must come from pre-master-branch, not '${{ github.head_ref }}'."
+            exit 1
+          fi

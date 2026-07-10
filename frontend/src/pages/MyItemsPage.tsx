@@ -25,6 +25,7 @@ import { useAuth } from "../auth/AuthContext";
 import { useSnackbar } from "../context/SnackbarContext";
 import { useArchivedItemsByOwner, useDeleteItem, useItemsByOwner, useSetItemArchived } from "../hooks/useItems";
 import { useRequests, useRespondToCounter } from "../hooks/useRequests";
+import { useCreateCheckout, usePaymentStatus } from "../hooks/usePayments";
 import { useCreateReview } from "../hooks/useReviews";
 import { ItemCard } from "../components/ItemCard";
 import type { CardMenuItem } from "../components/ItemCard";
@@ -471,6 +472,9 @@ function RequestHistoryRow({
   isCounterPending: boolean;
 }) {
   const isCounterOffered = req.status === "counter_offered";
+  const { data: payment } = usePaymentStatus(req.status === "approved" ? req.id : undefined);
+  const createCheckout = useCreateCheckout();
+  const snackbar = useSnackbar();
 
   return (
     <Box
@@ -543,6 +547,24 @@ function RequestHistoryRow({
             </Button>
           </Stack>
         )}
+        {req.status === "approved" &&
+          (payment?.status === "paid" ? (
+            <Chip label="Paid" size="small" color="success" variant="filled" />
+          ) : (
+            <Button
+              size="small"
+              variant="contained"
+              color="secondary"
+              disabled={createCheckout.isPending}
+              onClick={() =>
+                createCheckout.mutate(req.id, {
+                  onError: () => snackbar.error("Could not start payment. Please try again."),
+                })
+              }
+            >
+              Pay now
+            </Button>
+          ))}
         {req.status === "completed" &&
           (reviewed ? (
             <Chip label="Reviewed" size="small" color="primary" variant="filled" />

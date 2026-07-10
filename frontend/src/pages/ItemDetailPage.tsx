@@ -37,6 +37,7 @@ export function ItemDetailPage() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const [chatOpen, setChatOpen] = useState(false);
+  const [imageFailed, setImageFailed] = useState(false);
 
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(() => {
     try {
@@ -46,6 +47,10 @@ export function ItemDetailPage() {
       return null;
     }
   });
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [id]);
 
   // Request location only if not already cached from Browse page.
   useEffect(() => {
@@ -153,11 +158,12 @@ export function ItemDetailPage() {
               top: { md: 88 },
             }}
           >
-            {item.imageUrl ? (
+            {item.imageUrl && !imageFailed ? (
               <Box
                 component="img"
                 src={item.imageUrl}
                 alt={item.title}
+                onError={() => setImageFailed(true)}
                 sx={{ display: "block", width: "100%", height: 360, objectFit: "cover", borderRadius: 2 }}
               />
             ) : (

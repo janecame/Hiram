@@ -39,6 +39,7 @@ const STATUS_CHIP_COLOR: Record<ItemStatus, ChipProps["color"]> = {
 
 export function ItemCard({ item, menuItems }: { item: Item; menuItems?: CardMenuItem[] }) {
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
+  const [imageFailed, setImageFailed] = useState(false);
 
   return (
     <Card
@@ -59,11 +60,12 @@ export function ItemCard({ item, menuItems }: { item: Item; menuItems?: CardMenu
         sx={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "stretch" }}
       >
         <Box sx={{ position: "relative" }}>
-          {item.imageUrl ? (
+          {item.imageUrl && !imageFailed ? (
             <Box
               component="img"
               src={item.imageUrl}
               alt={item.title}
+              onError={() => setImageFailed(true)}
               sx={{ display: "block", width: "100%", height: 160, objectFit: "cover" }}
             />
           ) : (

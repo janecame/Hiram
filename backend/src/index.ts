@@ -16,6 +16,7 @@ import messagesRouter from "./routes/messages";
 import uploadRouter from "./routes/upload";
 import adminRouter from "./routes/admin";
 import reportsRouter from "./routes/reports";
+import paymentsRouter from "./routes/payments";
 import { pool } from "./db";
 
 const app = express();
@@ -25,6 +26,10 @@ initSocket(io);
 const PORT = process.env["PORT"] ?? 3001;
 
 app.use(cors());
+
+// Mounted before express.json() so the webhook route can read the raw body for signature verification.
+app.use("/api/payments", paymentsRouter);
+
 app.use(express.json());
 
 app.get("/health", async (_req, res) => {
@@ -51,7 +56,6 @@ app.use("/api/reports", reportsRouter);
 // Last-resort error handler so a thrown/forwarded error returns 500 instead of
 // crashing the process. (Controllers handle their own expected errors; this is
 // defense-in-depth for anything that slips through.)
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   console.error("Unhandled route error:", err);
   if (res.headersSent) return;

@@ -6,6 +6,7 @@ import { AuthProvider } from "./auth/AuthContext";
 import { SnackbarProvider } from "./context/SnackbarContext";
 import { Header } from "./components/Header";
 import { Footer } from "./components/Footer";
+import { TermsGate } from "./components/TermsGate";
 import { BrowsePage } from "./pages/BrowsePage";
 import { ItemDetailPage } from "./pages/ItemDetailPage";
 import { ListItemPage } from "./pages/ListItemPage";
@@ -16,6 +17,7 @@ import { EditItemPage } from "./pages/EditItemPage";
 import { MessagesPage } from "./pages/MessagesPage";
 import { AdminPage } from "./pages/AdminPage";
 import { NotificationsPage } from "./pages/NotificationsPage";
+import { TermsPage } from "./pages/TermsPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -41,10 +43,12 @@ function AppLayout() {
           <Route path="/messages" element={<MessagesPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/admin" element={<AdminPage />} />
+          <Route path="/terms" element={<TermsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Box>
       {!hideFooter && <Footer />}
+      <TermsGate />
     </Box>
   );
 }

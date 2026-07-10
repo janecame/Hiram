@@ -1,8 +1,9 @@
 import type { User } from "../types/user";
 
-type MockUser = Omit<User, "isAdmin" | "verificationStatus"> & {
+type MockUser = Omit<User, "isAdmin" | "verificationStatus" | "disabled" | "disabledReason"> & {
   isAdmin?: boolean;
   verificationStatus?: User["verificationStatus"];
+  disabled?: boolean;
 };
 
 /**

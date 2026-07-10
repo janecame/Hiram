@@ -1,12 +1,15 @@
 name: Deploy Frontend to S3 + CloudFront
 
+# TEMPORARILY DISABLED while testing the master branch ruleset — restore the
+# push trigger below once ruleset testing is done.
 on:
-  push:
-    branches:
-      - master
-    paths:
-      - "frontend/**"
-      - ".github/workflows/deploy-frontend.yml"
+  workflow_dispatch: {}
+  # push:
+  #   branches:
+  #     - master
+  #   paths:
+  #     - "frontend/**"
+  #     - ".github/workflows/deploy-frontend.yml"
 
 jobs:
   deploy:

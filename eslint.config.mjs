@@ -13,6 +13,14 @@ export default tseslint.config(
     languageOptions: {
       globals: { ...globals.node },
     },
+    rules: {
+      // Honor the underscore-prefix convention for intentionally-unused names.
+      "@typescript-eslint/no-unused-vars": ["error", {
+        argsIgnorePattern: "^_",
+        varsIgnorePattern: "^_",
+        ignoreRestSiblings: true,
+      }],
+    },
   },
 
   // Frontend
@@ -31,6 +39,14 @@ export default tseslint.config(
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "warn",
       "react/react-in-jsx-scope": "off",
+      // Cosmetic-only rule: literal quotes render fine in JSX, so it is noise.
+      "react/no-unescaped-entities": "off",
+      // Honor the underscore-prefix convention for intentionally-unused names.
+      "@typescript-eslint/no-unused-vars": ["error", {
+        argsIgnorePattern: "^_",
+        varsIgnorePattern: "^_",
+        ignoreRestSiblings: true,
+      }],
     },
   }
 );

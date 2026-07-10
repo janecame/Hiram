@@ -1,4 +1,5 @@
 import {
+  Autocomplete,
   Box,
   Chip,
   MenuItem,
@@ -27,8 +28,10 @@ interface FilterBarProps {
   onStatusChange: (s: StatusFilter) => void;
   sort: SortKey;
   onSortChange: (s: SortKey) => void;
-  search: string;
-  onSearchChange: (s: string) => void;
+  searchInput: string;
+  onSearchInputChange: (s: string) => void;
+  onSearchCommit: (s: string) => void;
+  searchSuggestions?: string[];
   resultCount?: number;
 }
 
@@ -50,8 +53,10 @@ export function FilterBar({
   onStatusChange,
   sort,
   onSortChange,
-  search,
-  onSearchChange,
+  searchInput,
+  onSearchInputChange,
+  onSearchCommit,
+  searchSuggestions = [],
   resultCount,
 }: FilterBarProps) {
   return (
@@ -61,20 +66,42 @@ export function FilterBar({
         spacing={2}
         alignItems={{ sm: "center" }}
       >
-        <TextField
-          value={search}
-          onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Search items, areas…"
-          size="small"
-          fullWidth
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <Search size={18} />
-              </InputAdornment>
-            ),
+        <Autocomplete
+          freeSolo
+          options={searchSuggestions}
+          inputValue={searchInput}
+          onInputChange={(_, value) => {
+            onSearchInputChange(value);
+            if (value === "") onSearchCommit("");
           }}
-          sx={{ maxWidth: { sm: 360 } }}
+          onChange={(_, value, reason) => {
+            if (
+              (reason === "selectOption" || reason === "createOption") &&
+              typeof value === "string"
+            ) {
+              onSearchCommit(value);
+            }
+          }}
+          size="small"
+          sx={{ width: "100%", maxWidth: { sm: 360 } }}
+          ListboxProps={{ sx: { maxHeight: 280 } }}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              placeholder="Search items, areas…"
+              InputProps={{
+                ...params.InputProps,
+                startAdornment: (
+                  <>
+                    <InputAdornment position="start">
+                      <Search size={18} />
+                    </InputAdornment>
+                    {params.InputProps.startAdornment}
+                  </>
+                ),
+              }}
+            />
+          )}
         />
         <TextField
           select

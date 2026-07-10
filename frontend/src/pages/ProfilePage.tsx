@@ -24,6 +24,7 @@ import {
   ArrowLeft,
   BadgeCheck,
   Building2,
+  Camera,
   Mail,
   MapPin,
   MessageCircle,
@@ -34,11 +35,14 @@ import {
   Star,
 } from "lucide-react";
 import { ChatPopup } from "../components/ChatPopup";
+import { PHLocationPicker, type PHLocationValue } from "../components/PHLocationPicker";
+import { LocationPicker } from "../components/LocationPicker";
 import { Link as RouterLink, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { useSnackbar } from "../context/SnackbarContext";
-import { useUserByName, useUpdateUser, useSubmitId } from "../hooks/useUser";
+import { useUserByName, useUpdateUser, useSubmitId, useUpdateAvatar } from "../hooks/useUser";
 import { useReviewsByUser } from "../hooks/useReviews";
+import { validateImageFile } from "../lib/uploadValidation";
 import {
   ACCOUNT_TYPE_LABELS,
   ACCOUNT_TYPES,
@@ -56,13 +60,31 @@ export function ProfilePage() {
   const { data: user, isLoading: userLoading } = useUserByName(name);
   const updateMutation = useUpdateUser(name ?? "");
   const submitIdMutation = useSubmitId();
+  const updateAvatarMutation = useUpdateAvatar();
 
   const [editOpen, setEditOpen] = useState(false);
   const [verifyOpen, setVerifyOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
 
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+
   const isBusiness = user?.accountType === "business";
   const isOwnProfile = Boolean(auth.currentUser && user && auth.currentUser.id === user.id);
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const err = validateImageFile(file);
+    if (err) { snackbar.error(err); e.target.value = ""; return; }
+    updateAvatarMutation.mutate(file, {
+      onSuccess: (updated) => {
+        auth.updateUser(updated);
+        snackbar.success("Profile photo updated.");
+      },
+      onError: () => snackbar.error("Could not update profile photo. Please try again."),
+    });
+    e.target.value = "";
+  };
 
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>
@@ -83,17 +105,54 @@ export function ProfilePage() {
         alignItems={{ xs: "flex-start", sm: "center" }}
         sx={{ mb: 3 }}
       >
-        <Avatar
-          sx={{
-            width: 72,
-            height: 72,
-            bgcolor: "primary.main",
-            fontFamily: '"Archivo", sans-serif',
-            fontSize: 28,
-          }}
-        >
-          {(user?.name ?? name ?? "?").charAt(0).toUpperCase()}
-        </Avatar>
+        {/* Avatar with upload overlay for own profile */}
+        <Box sx={{ position: "relative", flexShrink: 0 }}>
+          <Avatar
+            src={user?.avatarUrl}
+            sx={{
+              width: 72,
+              height: 72,
+              bgcolor: "primary.main",
+              fontFamily: '"Archivo", sans-serif',
+              fontSize: 28,
+            }}
+          >
+            {(user?.name ?? name ?? "?").charAt(0).toUpperCase()}
+          </Avatar>
+          {isOwnProfile && (
+            <>
+              <Box
+                onClick={() => avatarInputRef.current?.click()}
+                sx={{
+                  position: "absolute",
+                  inset: 0,
+                  borderRadius: "50%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  bgcolor: "rgba(0,0,0,0.45)",
+                  opacity: 0,
+                  cursor: "pointer",
+                  transition: "opacity 0.15s",
+                  "&:hover": { opacity: 1 },
+                }}
+              >
+                {updateAvatarMutation.isPending ? (
+                  <CircularProgress size={20} sx={{ color: "#fff" }} />
+                ) : (
+                  <Camera size={20} color="#fff" />
+                )}
+              </Box>
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                hidden
+                onChange={handleAvatarChange}
+              />
+            </>
+          )}
+        </Box>
 
         <Stack spacing={0.5} sx={{ flex: 1 }}>
           <Typography variant="h3" component="h1">
@@ -443,6 +502,7 @@ function VerifyDialog({
   onUpload: (file: File) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const snackbar = useSnackbar();
   const status = user.verificationStatus;
   const canUpload = status === "unsubmitted" || status === "rejected";
 
@@ -467,15 +527,19 @@ function VerifyDialog({
             <>
               <Typography variant="body2" sx={{ color: "text.secondary" }}>
                 Upload a clear photo of a valid government-issued ID (UMID, PhilSys, passport, driver's license).
+                JPEG or PNG only, max 5 MB.
               </Typography>
               <input
                 ref={inputRef}
                 type="file"
-                accept="image/*"
+                accept=".jpg,.jpeg,.png,image/jpeg,image/png"
                 hidden
                 onChange={(e) => {
                   const file = e.target.files?.[0];
-                  if (file) onUpload(file);
+                  if (!file) return;
+                  const err = validateImageFile(file);
+                  if (err) { snackbar.error(err); e.target.value = ""; return; }
+                  onUpload(file);
                   e.target.value = "";
                 }}
               />
@@ -511,7 +575,12 @@ interface EditProfileDialogProps {
   isSaving: boolean;
   error?: string;
   onClose: () => void;
-  onSave: (data: Partial<Pick<User, "name" | "email" | "phone" | "address" | "accountType">>) => void;
+  onSave: (data: Partial<Pick<User,
+    | "name" | "email" | "phone" | "address" | "accountType"
+    | "defaultProvince" | "defaultCity" | "defaultBarangay"
+    | "defaultProvinceCode" | "defaultCityCode" | "defaultBarangayCode"
+    | "defaultAddressDetail" | "defaultLat" | "defaultLng"
+  >>) => void;
 }
 
 function EditProfileDialog({ open, user, isSaving, error, onClose, onSave }: EditProfileDialogProps) {
@@ -520,6 +589,26 @@ function EditProfileDialog({ open, user, isSaving, error, onClose, onSave }: Edi
   const handleChange = (field: keyof User, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
+
+  const handleLocationChange = ({ province, city, barangay, provinceCode, cityCode, barangayCode }: PHLocationValue) => {
+    setForm((prev) => ({
+      ...prev,
+      defaultProvince: province,
+      defaultCity: city,
+      defaultBarangay: barangay,
+      defaultProvinceCode: provinceCode,
+      defaultCityCode: cityCode,
+      defaultBarangayCode: barangayCode,
+    }));
+  };
+
+  const handleMapChange = (lat: number, lng: number) => {
+    setForm((prev) => ({ ...prev, defaultLat: lat, defaultLng: lng }));
+  };
+
+  const currentDefaultArea = [user.defaultBarangay, user.defaultCity, user.defaultProvince]
+    .filter(Boolean)
+    .join(", ");
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
@@ -553,13 +642,6 @@ function EditProfileDialog({ open, user, isSaving, error, onClose, onSave }: Edi
             fullWidth
             size="small"
           />
-          <TextField
-            label="Address"
-            value={form.address}
-            onChange={(e) => handleChange("address", e.target.value)}
-            fullWidth
-            size="small"
-          />
           <FormControl fullWidth size="small">
             <InputLabel>Account type</InputLabel>
             <Select
@@ -575,6 +657,45 @@ function EditProfileDialog({ open, user, isSaving, error, onClose, onSave }: Edi
             </Select>
           </FormControl>
 
+          <Divider />
+          <Typography variant="overline" sx={{ color: "text.secondary" }}>
+            Address
+          </Typography>
+          <Typography variant="caption" sx={{ color: "text.secondary", mt: -1.5 }}>
+            This will auto-fill the location when you post a new listing.
+          </Typography>
+          <PHLocationPicker
+            onChange={handleLocationChange}
+            currentArea={currentDefaultArea || undefined}
+            initialProvinceCode={user.defaultProvinceCode}
+            initialCityCode={user.defaultCityCode}
+            initialBarangayCode={user.defaultBarangayCode}
+            initialProvinceName={user.defaultProvince}
+            initialCityName={user.defaultCity}
+            initialBarangayName={user.defaultBarangay}
+          />
+          <TextField
+            label="Street / landmark (optional)"
+            value={form.defaultAddressDetail ?? ""}
+            onChange={(e) => handleChange("defaultAddressDetail", e.target.value)}
+            fullWidth
+            size="small"
+          />
+
+          <Divider />
+          <Typography variant="overline" sx={{ color: "text.secondary" }}>
+            Default pickup location
+          </Typography>
+          <Typography variant="caption" sx={{ color: "text.secondary", mt: -1.5 }}>
+            Drop a pin where borrowers pick up. This auto-fills the map when you post a new listing.
+          </Typography>
+          <LocationPicker
+            lat={form.defaultLat}
+            lng={form.defaultLng}
+            onChange={handleMapChange}
+            helperText="Click on the map or drag the pin to set your default pickup spot."
+          />
+
           {error && (
             <Typography variant="body2" color="error">
               {error}
@@ -588,7 +709,25 @@ function EditProfileDialog({ open, user, isSaving, error, onClose, onSave }: Edi
           Cancel
         </Button>
         <Button
-          onClick={() => onSave({ name: form.name, email: form.email, phone: form.phone, address: form.address, accountType: form.accountType })}
+          onClick={() => onSave({
+            name: form.name,
+            email: form.email,
+            phone: form.phone,
+            // Keep the header's location chip in sync with the dynamic address.
+            address: [form.defaultBarangay, form.defaultCity, form.defaultProvince]
+              .filter(Boolean)
+              .join(", ") || form.address,
+            accountType: form.accountType,
+            defaultProvince: form.defaultProvince,
+            defaultCity: form.defaultCity,
+            defaultBarangay: form.defaultBarangay,
+            defaultProvinceCode: form.defaultProvinceCode,
+            defaultCityCode: form.defaultCityCode,
+            defaultBarangayCode: form.defaultBarangayCode,
+            defaultAddressDetail: form.defaultAddressDetail,
+            defaultLat: form.defaultLat,
+            defaultLng: form.defaultLng,
+          })}
           variant="contained"
           color="primary"
           disabled={isSaving}

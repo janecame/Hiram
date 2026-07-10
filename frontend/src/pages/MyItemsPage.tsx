@@ -25,11 +25,13 @@ import { useAuth } from "../auth/AuthContext";
 import { useSnackbar } from "../context/SnackbarContext";
 import { useArchivedItemsByOwner, useDeleteItem, useItemsByOwner, useSetItemArchived } from "../hooks/useItems";
 import { useRequests, useRespondToCounter } from "../hooks/useRequests";
+import { useCreateCheckout, usePaymentStatus } from "../hooks/usePayments";
 import { useCreateReview } from "../hooks/useReviews";
 import { ItemCard } from "../components/ItemCard";
 import type { CardMenuItem } from "../components/ItemCard";
 import { ItemCardSkeleton } from "../components/ItemCardSkeleton";
 import { EmptyState } from "../components/EmptyState";
+import { ReportDialog } from "./DashboardPage";
 import type { BorrowRequest, RequestStatus } from "../types/request";
 import type { Item } from "../types/item";
 
@@ -328,14 +330,25 @@ function DeleteConfirmDialog({
   );
 }
 
+type RequestFilter = "all" | "pending" | "active" | "completed";
+
+const FILTER_LABELS: Record<RequestFilter, string> = {
+  all: "All",
+  pending: "Pending",
+  active: "Active",
+  completed: "Completed",
+};
+
 function MyRequestsTab() {
   const { data: requests, isLoading } = useRequests("borrower");
   const snackbar = useSnackbar();
   const respondToCounter = useRespondToCounter();
+  const [filter, setFilter] = useState<RequestFilter>("all");
   const [reviewedRequestIds, setReviewedRequestIds] = useState<Set<string>>(
     () => new Set()
   );
   const [reviewTarget, setReviewTarget] = useState<BorrowRequest | null>(null);
+  const [reportTarget, setReportTarget] = useState<BorrowRequest | null>(null);
 
   const markReviewed = (requestId: string) => {
     setReviewedRequestIds((prev) => {
@@ -344,6 +357,14 @@ function MyRequestsTab() {
       return next;
     });
   };
+
+  const all = requests ?? [];
+  const visibleRequests = all.filter((r) => {
+    if (filter === "pending") return r.status === "pending" || r.status === "counter_offered";
+    if (filter === "active") return r.status === "approved" || r.status === "return_requested";
+    if (filter === "completed") return r.status === "completed";
+    return true;
+  });
 
   if (isLoading) {
     return (
@@ -355,44 +376,61 @@ function MyRequestsTab() {
     );
   }
 
-  if (!requests || requests.length === 0) {
-    return (
-      <EmptyState
-        title="No requests yet"
-        message="Items you ask to borrow will appear here."
-      />
+  const handleAcceptCounter = (req: BorrowRequest) =>
+    respondToCounter.mutate(
+      { id: req.id, action: "accept" },
+      {
+        onSuccess: () => snackbar.success("Counter-offer accepted. The lister will review your updated request."),
+        onError: () => snackbar.error("Could not accept counter-offer. Please try again."),
+      }
     );
-  }
+
+  const handleDeclineCounter = (req: BorrowRequest) =>
+    respondToCounter.mutate(
+      { id: req.id, action: "decline" },
+      {
+        onSuccess: () => snackbar.success("Counter-offer declined."),
+        onError: () => snackbar.error("Could not decline counter-offer. Please try again."),
+      }
+    );
 
   return (
-    <Stack spacing={2}>
-      {requests.map((req) => (
-        <RequestHistoryRow
-          key={req.id}
-          req={req}
-          reviewed={reviewedRequestIds.has(req.id)}
-          onReview={() => setReviewTarget(req)}
-          onAcceptCounter={() =>
-            respondToCounter.mutate(
-              { id: req.id, action: "accept" },
-              {
-                onSuccess: () => snackbar.success("Counter-offer accepted. The lister will review your updated request."),
-                onError: () => snackbar.error("Could not accept counter-offer. Please try again."),
-              }
-            )
-          }
-          onDeclineCounter={() =>
-            respondToCounter.mutate(
-              { id: req.id, action: "decline" },
-              {
-                onSuccess: () => snackbar.success("Counter-offer declined."),
-                onError: () => snackbar.error("Could not decline counter-offer. Please try again."),
-              }
-            )
-          }
-          isCounterPending={respondToCounter.isPending}
+    <>
+      <Stack direction="row" spacing={1} sx={{ mb: 2.5 }} flexWrap="wrap" useFlexGap>
+        {(Object.keys(FILTER_LABELS) as RequestFilter[]).map((f) => (
+          <Chip
+            key={f}
+            label={FILTER_LABELS[f]}
+            onClick={() => setFilter(f)}
+            color={filter === f ? "primary" : "default"}
+            variant={filter === f ? "filled" : "outlined"}
+            sx={{ fontWeight: filter === f ? 600 : 400 }}
+          />
+        ))}
+      </Stack>
+
+      {visibleRequests.length === 0 ? (
+        <EmptyState
+          title={filter === "all" ? "No requests yet" : `No ${FILTER_LABELS[filter].toLowerCase()} requests`}
+          message={filter === "all" ? "Items you ask to borrow will appear here." : ""}
         />
-      ))}
+      ) : (
+        <Stack spacing={2}>
+          {visibleRequests.map((req) => (
+            <RequestHistoryRow
+              key={req.id}
+              req={req}
+              reviewed={reviewedRequestIds.has(req.id)}
+              onReview={() => setReviewTarget(req)}
+              onReport={() => setReportTarget(req)}
+              onAcceptCounter={() => handleAcceptCounter(req)}
+              onDeclineCounter={() => handleDeclineCounter(req)}
+              isCounterPending={respondToCounter.isPending}
+            />
+          ))}
+        </Stack>
+      )}
+
       <ReviewDialog
         request={reviewTarget}
         onClose={() => setReviewTarget(null)}
@@ -402,7 +440,17 @@ function MyRequestsTab() {
           snackbar.success(`Thanks for reviewing "${req.itemTitle}"!`);
         }}
       />
-    </Stack>
+      <ReportDialog
+        request={reportTarget}
+        reportedId={reportTarget?.listerId ?? null}
+        reportedLabel={reportTarget ? `lister ${reportTarget.listerName}` : ""}
+        onClose={() => setReportTarget(null)}
+        onSuccess={() => {
+          setReportTarget(null);
+          snackbar.success("Report submitted. Admin will review it.");
+        }}
+      />
+    </>
   );
 }
 
@@ -410,6 +458,7 @@ function RequestHistoryRow({
   req,
   reviewed,
   onReview,
+  onReport,
   onAcceptCounter,
   onDeclineCounter,
   isCounterPending,
@@ -417,11 +466,15 @@ function RequestHistoryRow({
   req: BorrowRequest;
   reviewed: boolean;
   onReview: () => void;
+  onReport: () => void;
   onAcceptCounter: () => void;
   onDeclineCounter: () => void;
   isCounterPending: boolean;
 }) {
   const isCounterOffered = req.status === "counter_offered";
+  const { data: payment } = usePaymentStatus(req.status === "approved" ? req.id : undefined);
+  const createCheckout = useCreateCheckout();
+  const snackbar = useSnackbar();
 
   return (
     <Box
@@ -494,6 +547,24 @@ function RequestHistoryRow({
             </Button>
           </Stack>
         )}
+        {req.status === "approved" &&
+          (payment?.status === "paid" ? (
+            <Chip label="Paid" size="small" color="success" variant="filled" />
+          ) : (
+            <Button
+              size="small"
+              variant="contained"
+              color="secondary"
+              disabled={createCheckout.isPending}
+              onClick={() =>
+                createCheckout.mutate(req.id, {
+                  onError: () => snackbar.error("Could not start payment. Please try again."),
+                })
+              }
+            >
+              Pay now
+            </Button>
+          ))}
         {req.status === "completed" &&
           (reviewed ? (
             <Chip label="Reviewed" size="small" color="primary" variant="filled" />
@@ -502,6 +573,11 @@ function RequestHistoryRow({
               Leave a Review
             </Button>
           ))}
+        {(req.status === "approved" || req.status === "completed") && (
+          <Button size="small" variant="outlined" color="error" onClick={onReport}>
+            Report
+          </Button>
+        )}
       </Stack>
     </Box>
   );

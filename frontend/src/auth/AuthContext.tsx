@@ -8,15 +8,19 @@ import {
 } from "react";
 import {
   Button,
+  Checkbox,
   Dialog,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
+  Link,
   Stack,
   TextField,
   ToggleButton,
   ToggleButtonGroup,
   Typography,
 } from "@mui/material";
+import { Link as RouterLink } from "react-router-dom";
 import { apiLogin, apiRegister } from "../api/auth";
 import type { User } from "../types/user";
 
@@ -48,6 +52,7 @@ function loadStoredUser(): User | null {
       businessDocsSubmitted: false,
       verificationStatus: "unsubmitted",
       isAdmin: payload.isAdmin ?? false,
+      disabled: false,
       createdAt: "",
     };
   } catch {
@@ -75,9 +80,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [name, setName] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   const openModal = useCallback(() => {
-    setEmail(""); setPassword(""); setName(""); setError(""); setMode("login");
+    setEmail(""); setPassword(""); setName(""); setError(""); setTermsAccepted(false); setMode("login");
     setModalOpen(true);
   }, []);
 
@@ -95,7 +101,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         resp = await apiLogin({ email, password });
       } else {
         if (!name.trim()) { setError("Name is required"); setBusy(false); return; }
-        resp = await apiRegister({ name: name.trim(), email, password });
+        if (!termsAccepted) { setError("You must accept the Terms and Conditions to register."); setBusy(false); return; }
+        resp = await apiRegister({ name: name.trim(), email, password, termsAcceptedAt: new Date().toISOString() });
       }
       localStorage.setItem(TOKEN_KEY, resp.token);
       setCurrentUser(resp.user);
@@ -133,7 +140,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             <ToggleButtonGroup
               value={mode}
               exclusive
-              onChange={(_, v) => { if (v) { setMode(v as "login" | "register"); setError(""); } }}
+              onChange={(_, v) => { if (v) { setMode(v as "login" | "register"); setError(""); setTermsAccepted(false); } }}
               size="small"
               fullWidth
             >
@@ -167,6 +174,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               onKeyDown={(e) => { if (e.key === "Enter") { void handleSubmit(); } }}
             />
 
+            {mode === "register" && (
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    size="small"
+                    checked={termsAccepted}
+                    onChange={(e) => setTermsAccepted(e.target.checked)}
+                  />
+                }
+                label={
+                  <Typography variant="body2">
+                    I agree to the{" "}
+                    <Link
+                      component={RouterLink}
+                      to="/terms"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      underline="hover"
+                      color="primary"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      Terms and Conditions
+                    </Link>
+                  </Typography>
+                }
+              />
+            )}
+
             {error && (
               <Typography variant="body2" color="error">
                 {error}
@@ -177,7 +212,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               variant="contained"
               color="secondary"
               size="large"
-              disabled={busy || !email || !password}
+              disabled={busy || !email || !password || (mode === "register" && !termsAccepted)}
               onClick={() => void handleSubmit()}
             >
               {busy ? "…" : mode === "login" ? "Log in" : "Create account"}

@@ -11,6 +11,7 @@ export async function apiRegister(data: {
   email: string;
   password: string;
   accountType?: "solo" | "business";
+  termsAcceptedAt?: string;
 }): Promise<AuthResponse> {
   const res = await fetch(`${API_BASE}/api/auth/register`, {
     method: "POST",

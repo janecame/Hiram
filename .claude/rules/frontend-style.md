@@ -19,7 +19,7 @@
 - Functional components only, exported as named exports (not default exports).
 - Props typed inline as interfaces directly above the component.
 - `StampBadge` — round dashed badge for price and distance. Hiram's signature element. Use it for those two values only.
-- `CategoryBlock` — category-tinted icon block replacing item photos. Never use `<img>` for item images.
+- `CategoryBlock` — category-tinted icon block used as a fallback when an item has no image. When `item.imageUrl` exists, render it with MUI `CardMedia` or an `<img>` — `CategoryBlock` is the no-image fallback only.
 - `ItemCardSkeleton` — use for loading states in grid views. Number of skeletons: 8.
 
 ## Forms
@@ -32,8 +32,19 @@
 
 ## Routing
 
-- Three routes: `/` (BrowsePage), `/item/:id` (ItemDetailPage), `/list` (ListItemPage).
-- Use `RouterLink` from `react-router-dom` as the `component` prop on MUI components that need navigation — do not nest `<a>` inside MUI interactive elements.
+Current routes:
+- `/` — BrowsePage
+- `/item/:id` — ItemDetailPage
+- `/list` — ListItemPage
+- `/item/:id/edit` — EditItemPage
+- `/profile/:owner` — ProfilePage
+- `/dashboard` — DashboardPage
+- `/my-items` — MyItemsPage
+- `/messages` — MessagesPage
+- `/notifications` — NotificationsPage
+- `/admin` — AdminPage (admin only)
+
+Use `RouterLink` from `react-router-dom` as the `component` prop on MUI components that need navigation — do not nest `<a>` inside MUI interactive elements.
 
 ## Design tokens
 

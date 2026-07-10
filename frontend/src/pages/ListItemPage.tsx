@@ -18,7 +18,9 @@ import { Link as RouterLink, useNavigate } from "react-router-dom";
 import { itemFormSchema, type ItemFormValues } from "../schemas/item-form";
 import { useCreateItem } from "../hooks/useItems";
 import { useAuth } from "../auth/AuthContext";
+import { useUserByName } from "../hooks/useUser";
 import { uploadImage } from "../api/upload";
+import { validateImageFile } from "../lib/uploadValidation";
 import { useSnackbar } from "../context/SnackbarContext";
 import {
   CATEGORIES,
@@ -31,9 +33,10 @@ import {
 
 export function ListItemPage() {
   const navigate = useNavigate();
-  const { isAuthenticated, login } = useAuth();
+  const { isAuthenticated, login, currentUser } = useAuth();
   const { mutateAsync, isPending } = useCreateItem();
   const snackbar = useSnackbar();
+  const { data: fullProfile } = useUserByName(currentUser?.name);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -64,6 +67,9 @@ export function ListItemPage() {
       province: "",
       city: "",
       barangay: "",
+      provinceCode: "",
+      cityCode: "",
+      barangayCode: "",
       addressDetail: "",
       condition: "",
       lat: undefined,
@@ -73,6 +79,23 @@ export function ListItemPage() {
 
   const lat = watch("lat");
   const lng = watch("lng");
+
+  // Prefill location defaults from the user's profile settings once loaded.
+  useEffect(() => {
+    if (!fullProfile) return;
+    if (fullProfile.defaultProvince) setValue("province", fullProfile.defaultProvince);
+    if (fullProfile.defaultCity) setValue("city", fullProfile.defaultCity);
+    if (fullProfile.defaultBarangay) setValue("barangay", fullProfile.defaultBarangay);
+    if (fullProfile.defaultProvinceCode) setValue("provinceCode", fullProfile.defaultProvinceCode);
+    if (fullProfile.defaultCityCode) setValue("cityCode", fullProfile.defaultCityCode);
+    if (fullProfile.defaultBarangayCode) setValue("barangayCode", fullProfile.defaultBarangayCode);
+    if (fullProfile.defaultAddressDetail) setValue("addressDetail", fullProfile.defaultAddressDetail);
+    if (fullProfile.defaultLat != null && fullProfile.defaultLng != null) {
+      setValue("lat", fullProfile.defaultLat);
+      setValue("lng", fullProfile.defaultLng);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fullProfile?.id]);
 
   // Revoke the object URL when it changes or the page unmounts.
   useEffect(() => {
@@ -84,6 +107,12 @@ export function ListItemPage() {
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const validationError = validateImageFile(file);
+    if (validationError) {
+      snackbar.error(validationError);
+      e.target.value = "";
+      return;
+    }
     if (imagePreview) URL.revokeObjectURL(imagePreview);
     pendingFileRef.current = file;
     const url = URL.createObjectURL(file);
@@ -147,6 +176,9 @@ export function ListItemPage() {
       province: values.province,
       city: values.city,
       barangay: values.barangay,
+      provinceCode: values.provinceCode || undefined,
+      cityCode: values.cityCode || undefined,
+      barangayCode: values.barangayCode || undefined,
       addressDetail: values.addressDetail?.trim()
         ? values.addressDetail
         : undefined,
@@ -370,10 +402,19 @@ export function ListItemPage() {
           </Stack>
 
           <PHLocationPicker
-            onChange={({ province, city, barangay }) => {
+            initialProvinceCode={fullProfile?.defaultProvinceCode}
+            initialCityCode={fullProfile?.defaultCityCode}
+            initialBarangayCode={fullProfile?.defaultBarangayCode}
+            initialProvinceName={fullProfile?.defaultProvince}
+            initialCityName={fullProfile?.defaultCity}
+            initialBarangayName={fullProfile?.defaultBarangay}
+            onChange={({ province, city, barangay, provinceCode, cityCode, barangayCode }) => {
               setValue("province", province, { shouldValidate: true });
               setValue("city", city, { shouldValidate: true });
               setValue("barangay", barangay, { shouldValidate: true });
+              setValue("provinceCode", provinceCode);
+              setValue("cityCode", cityCode);
+              setValue("barangayCode", barangayCode);
             }}
             error={Boolean(errors.province || errors.city || errors.barangay)}
             helperText={

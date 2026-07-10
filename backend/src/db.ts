@@ -7,8 +7,13 @@ import { Pool, types } from "pg";
 // into 2026-10-09). Calendar dates have no timezone, so keep them as strings.
 types.setTypeParser(1082, (value) => value);
 
+// Prefer a real DATABASE_URL (e.g. AWS RDS, which requires SSL); fall back to
+// LOCAL_DATABASE_URL for local Postgres, which does not support SSL at all.
+const connectionString = process.env["DATABASE_URL"] ?? process.env["LOCAL_DATABASE_URL"];
+const ssl = process.env["DATABASE_URL"] ? { rejectUnauthorized: false } : false;
+
 export const pool = new Pool({
-  connectionString: process.env["DATABASE_URL"],
-  ssl: { rejectUnauthorized: false },
+  connectionString,
+  ssl,
   connectionTimeoutMillis: 5000,
 });

@@ -32,6 +32,10 @@ export interface Item {
   city?: string;
   /** PSGC barangay name (manual select) */
   barangay?: string;
+  /** Stable PSGC codes — persisted so location dropdowns can be pre-selected on edit */
+  provinceCode?: string;
+  cityCode?: string;
+  barangayCode?: string;
   /** Block / lot / street / landmark — free text */
   addressDetail?: string;
   area: string;
@@ -52,6 +56,9 @@ export interface Item {
   quantity: number;
   /** Whether the listing is archived (hidden from browse; owner-only action) */
   archived: boolean;
+  /** Admin-set disable flag. Disabled items are excluded from public browse. */
+  disabled: boolean;
+  disabledReason?: string;
   /** ISO string */
   createdAt: string;
 }
@@ -62,7 +69,7 @@ export interface Item {
  */
 export type NewItemInput = Omit<
   Item,
-  "id" | "createdAt" | "distanceKm" | "status" | "rating" | "reviewCount" | "owner" | "ownerId" | "archived"
+  "id" | "createdAt" | "distanceKm" | "status" | "rating" | "reviewCount" | "owner" | "ownerId" | "archived" | "disabled" | "disabledReason"
 >;
 
 export const STATUSES: ItemStatus[] = ["available", "unavailable", "reserved"];

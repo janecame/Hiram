@@ -1,7 +1,14 @@
 import { useState, useEffect } from "react";
-import { Box, Chip, Container, Pagination, Stack, Typography } from "@mui/material";
+import {
+  Box,
+  Chip,
+  Container,
+  Pagination,
+  Stack,
+  Typography,
+} from "@mui/material";
 import { MapPinOff } from "lucide-react";
-import { useItems } from "../hooks/useItems";
+import { useItems, useItemSuggestions } from "../hooks/useItems";
 import { useUserLocation } from "../hooks/useUserLocation";
 import type { SortKey } from "../api/items";
 import {
@@ -28,16 +35,27 @@ export function BrowsePage() {
   const [category, setCategory] = useState<CategoryFilter>("all");
   const [status, setStatus] = useState<StatusFilter>("all");
   const [sort, setSort] = useState<SortKey>("nearest");
-  const [search, setSearch] = useState("");
+
+  // searchInput = what's currently typed (drives suggestions)
+  // debouncedInput = debounced searchInput (fed to suggestions hook)
+  // committedSearch = only updates on Enter/select (drives the items query)
+  const [searchInput, setSearchInput] = useState("");
+  const [debouncedInput, setDebouncedInput] = useState("");
+  const [committedSearch, setCommittedSearch] = useState("");
   const [page, setPage] = useState(1);
 
   const { coords: userCoords, status: locationStatus, request: requestLocation } = useUserLocation();
 
-  // Silently request location on mount, same behaviour as before.
   useEffect(() => {
     requestLocation();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Debounce suggestions fetch only — main query is triggered by commit
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedInput(searchInput), 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
 
   function resetPage() {
     setPage(1);
@@ -47,11 +65,13 @@ export function BrowsePage() {
     category,
     status,
     sort,
-    search,
+    search: committedSearch,
     page,
     userLat: userCoords?.lat,
     userLng: userCoords?.lng,
   });
+
+  const { data: suggestions } = useItemSuggestions(debouncedInput);
 
   const items = data?.items;
   const totalPages = data?.totalPages ?? 1;
@@ -59,7 +79,7 @@ export function BrowsePage() {
 
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>
-      <Stack spacing={1} sx={{ mb: 4 }}>
+      <Stack spacing={1} sx={{ mb: 3 }}>
         <Typography variant="h3" component="h1">
           Borrow what you need, nearby
         </Typography>
@@ -75,8 +95,10 @@ export function BrowsePage() {
         onStatusChange={(v) => { setStatus(v); resetPage(); }}
         sort={sort}
         onSortChange={(v) => { setSort(v); resetPage(); }}
-        search={search}
-        onSearchChange={(v) => { setSearch(v); resetPage(); }}
+        searchInput={searchInput}
+        onSearchInputChange={setSearchInput}
+        onSearchCommit={(s) => { setCommittedSearch(s); resetPage(); }}
+        searchSuggestions={suggestions ?? []}
         resultCount={total}
       />
 

@@ -9,7 +9,13 @@ export type NotificationType =
   | 'id_rejected'
   | 'counter_offered'
   | 'counter_accepted'
-  | 'counter_declined';
+  | 'counter_declined'
+  | 'account_disabled'
+  | 'account_enabled'
+  | 'item_disabled'
+  | 'report_filed'
+  | 'payment_received'
+  | 'payment_failed';
 
 export interface Notification {
   id: string;

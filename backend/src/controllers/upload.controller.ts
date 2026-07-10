@@ -27,12 +27,13 @@ export const UploadController = {
       return;
     }
 
-    if (!contentType.startsWith("image/")) {
-      res.status(400).json({ error: "Only image uploads are allowed" });
+    const ALLOWED_MIME = ["image/jpeg", "image/png"];
+    if (!ALLOWED_MIME.includes(contentType)) {
+      res.status(400).json({ error: "Only JPEG and PNG images are allowed" });
       return;
     }
 
-    const ALLOWED_PREFIXES = ["items", "ids"] as const;
+    const ALLOWED_PREFIXES = ["items", "ids", "avatars"] as const;
     const folder = ALLOWED_PREFIXES.includes(prefix as typeof ALLOWED_PREFIXES[number])
       ? prefix
       : "items";

@@ -1,6 +1,6 @@
 # Hooks & Guards
 
-Active hooks configured in `.claude/settings.json`:
+Active hooks configured in `.claude/settings.json` (and allowed in `.claude/settings.local.json`):
 
 | Hook | Trigger | Behavior |
 |---|---|---|

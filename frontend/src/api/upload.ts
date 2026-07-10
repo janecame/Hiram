@@ -4,7 +4,7 @@ function getToken(): string | null {
   return localStorage.getItem("hiram_token");
 }
 
-export async function uploadImage(file: File, prefix?: "items" | "ids"): Promise<string> {
+export async function uploadImage(file: File, prefix?: "items" | "ids" | "avatars"): Promise<string> {
   const token = getToken();
   if (!token) throw new Error("Authentication required");
 
@@ -17,7 +17,10 @@ export async function uploadImage(file: File, prefix?: "items" | "ids"): Promise
     body: JSON.stringify({ filename: file.name, contentType: file.type, prefix }),
   });
 
-  if (!presignRes.ok) throw new Error("Failed to get upload URL");
+  if (!presignRes.ok) {
+    const body = (await presignRes.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? "Failed to get upload URL");
+  }
 
   const { uploadUrl, publicUrl } = (await presignRes.json()) as {
     uploadUrl: string;

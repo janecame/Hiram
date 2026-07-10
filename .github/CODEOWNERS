@@ -1,0 +1,6 @@
+# Code owners for Hiram.
+# Any PR that changes matching files needs approval from the listed owner.
+# Enforced only when a ruleset enables "Require review from Code Owners".
+
+# All CI/CD workflows, this CODEOWNERS file, and repo config require owner sign-off.
+/.github/**   @janecame

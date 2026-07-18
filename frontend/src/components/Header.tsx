@@ -22,7 +22,7 @@ export function Header() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const onList = pathname === "/list";
-  const { isAuthenticated, currentUser, login, logout } = useAuth();
+  const { isAuthenticated, currentUser, logout } = useAuth();
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const menuOpen = Boolean(menuAnchor);
   const [notifAnchor, setNotifAnchor] = useState<null | HTMLElement>(null);
@@ -51,7 +51,7 @@ export function Header() {
   const handleNotifClick = (id: string, requestId?: string, type?: string) => {
     markRead.mutate(id);
     if (requestId) {
-      navigate("/dashboard");
+      navigate("/transaction");
     } else if (type === "id_verified" || type === "id_rejected") {
       if (currentUser) navigate(`/profile/${encodeURIComponent(currentUser.name)}`);
     }
@@ -87,10 +87,10 @@ export function Header() {
               <Package size={18} />
             </Box>
             <Box>
-              <Typography variant="h6" sx={{ lineHeight: 1, fontSize: 22 }} color="primary">
+              <Typography variant="h6" sx={{ lineHeight: 1, fontSize: 22, mb: 0 }} color="primary">
                 Hiram
               </Typography>
-              <Typography variant="caption" sx={{ fontSize: 9, color: "text.secondary" }}>
+              <Typography variant="caption" sx={{ fontSize: 9, lineHeight: 1, display: "block", mt: 0.25, color: "text.secondary" }}>
                 borrow what's near
               </Typography>
             </Box>
@@ -107,16 +107,18 @@ export function Header() {
           >
             Browse
           </Button>
-          <Button
-            component={RouterLink}
-            to="/list"
-            variant={onList ? "contained" : "outlined"}
-            color="secondary"
-            startIcon={<Plus size={18} />}
-            sx={{ display: { xs: "none", sm: "inline-flex" } }}
-          >
-            List an item
-          </Button>
+          {isAuthenticated && (
+            <Button
+              component={RouterLink}
+              to="/list"
+              variant={onList ? "contained" : "outlined"}
+              color="secondary"
+              startIcon={<Plus size={18} />}
+              sx={{ display: { xs: "none", sm: "inline-flex" } }}
+            >
+              List an item
+            </Button>
+          )}
 
           {/* Desktop: bell + messages (authenticated only) */}
           {isAuthenticated && currentUser && (
@@ -240,18 +242,18 @@ export function Header() {
                 transformOrigin={{ vertical: "top", horizontal: "right" }}
                 slotProps={{ paper: { sx: { mt: 1, minWidth: 180 } } }}
               >
-                <MenuItem onClick={() => handleNav("/dashboard")}>
+                <MenuItem onClick={() => handleNav("/transaction")}>
                   <LayoutDashboard size={16} style={{ marginRight: 10 }} />
-                  Dashboard
+                  Transactions
                 </MenuItem>
                 <MenuItem onClick={() => handleNav(`/profile/${encodeURIComponent(currentUser.name)}`)}>
                   <User size={16} style={{ marginRight: 10 }} />
                   Profile
                 </MenuItem>
-                <MenuItem onClick={() => handleNav("/my-items")}>
+                {/* <MenuItem onClick={() => handleNav("/my-items")}>
                   <ListIcon size={16} style={{ marginRight: 10 }} />
                   Items
-                </MenuItem>
+                </MenuItem> */}
                 {/*<MenuItem onClick={() => handleNav("/history")}>
                   <History size={16} style={{ marginRight: 10 }} />
                   History
@@ -273,14 +275,24 @@ export function Header() {
               </Menu>
             </>
           ) : (
-            <Button
-              color="primary"
-              startIcon={<LogIn size={18} />}
-              onClick={login}
-              sx={{ display: { xs: "none", sm: "inline-flex" } }}
-            >
-              Log in
-            </Button>
+            <Box sx={{ display: { xs: "none", sm: "inline-flex" }, gap: 1 }}>
+              <Button
+                color="primary"
+                startIcon={<LogIn size={18} />}
+                component={RouterLink}
+                to="/login"
+              >
+                Log in
+              </Button>
+              <Button
+                variant="outlined"
+                color="secondary"
+                component={RouterLink}
+                to="/signup"
+              >
+                Sign up
+              </Button>
+            </Box>
           )}
 
           {/* Mobile: hamburger */}
@@ -307,10 +319,12 @@ export function Header() {
               <ListIcon size={16} style={{ marginRight: 10 }} />
               Browse
             </MenuItem>
-            <MenuItem onClick={() => handleNav("/list")}>
-              <Plus size={16} style={{ marginRight: 10 }} />
-              List an item
-            </MenuItem>
+            {isAuthenticated && (
+              <MenuItem onClick={() => handleNav("/list")}>
+                <Plus size={16} style={{ marginRight: 10 }} />
+                List an item
+              </MenuItem>
+            )}
 
             {isAuthenticated && currentUser ? (
               <>
@@ -328,18 +342,18 @@ export function Header() {
                   Messages
                 </MenuItem>
                 <Divider />
-                <MenuItem onClick={() => handleNav("/dashboard")}>
+                <MenuItem onClick={() => handleNav("/transaction")}>
                   <LayoutDashboard size={16} style={{ marginRight: 10 }} />
-                  Dashboard
+                  Transactions
                 </MenuItem>
                 <MenuItem onClick={() => handleNav(`/profile/${encodeURIComponent(currentUser.name)}`)}>
                   <User size={16} style={{ marginRight: 10 }} />
                   Profile
                 </MenuItem>
-                <MenuItem onClick={() => handleNav("/my-items")}>
+                {/* <MenuItem onClick={() => handleNav("/my-items")}>
                   <ListIcon size={16} style={{ marginRight: 10 }} />
                   Items
-                </MenuItem>
+                </MenuItem> */}
                 {/* <MenuItem onClick={() => handleNav("/history")}>
                   <History size={16} style={{ marginRight: 10 }} />
                   History
@@ -362,9 +376,13 @@ export function Header() {
             ) : (
               <>
                 <Divider />
-                <MenuItem onClick={() => { login(); setBurgerAnchor(null); }}>
+                <MenuItem onClick={() => handleNav("/login")}>
                   <LogIn size={16} style={{ marginRight: 10 }} />
                   Log in
+                </MenuItem>
+                <MenuItem onClick={() => handleNav("/signup")}>
+                  <User size={16} style={{ marginRight: 10 }} />
+                  Sign up
                 </MenuItem>
               </>
             )}

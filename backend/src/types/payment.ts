@@ -1,4 +1,5 @@
 export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded' | 'expired';
+export type PaymentMethod = 'paymongo' | 'cash';
 
 export interface Payment {
   id: string;
@@ -7,6 +8,7 @@ export interface Payment {
   listerId: string;
   amount: number;
   status: PaymentStatus;
+  method: PaymentMethod;
   paymongoCheckoutSessionId?: string;
   paymongoPaymentId?: string;
   checkoutUrl?: string;

@@ -23,11 +23,13 @@ import { useSnackbar } from "../context/SnackbarContext";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { useCounterOffer, useRequests, useUpdateRequestStatus } from "../hooks/useRequests";
+import { useConfirmCashPayment, usePaymentStatus } from "../hooks/usePayments";
 import { useCreateReview, useReviewsByUser } from "../hooks/useReviews";
-import { useCreateReport, useMyReports } from "../hooks/useReports";
+import { useCreateReport } from "../hooks/useReports";
 import type { BorrowRequest } from "../types/request";
-import { REPORT_REASONS, REPORT_REASON_LABELS, REPORT_STATUS_LABELS } from "../types/report";
+import { REPORT_REASONS, REPORT_REASON_LABELS } from "../types/report";
 import { EmptyState } from "../components/EmptyState";
+import { MyRequestsTab } from "./MyItemsPage";
 
 function formatRange(start: string, end: string): string {
   const fmt = (iso: string) => {
@@ -53,7 +55,7 @@ export function DashboardPage() {
   const [reviewTarget, setReviewTarget] = useState<BorrowRequest | null>(null);
   const [counterTarget, setCounterTarget] = useState<BorrowRequest | null>(null);
   const [reportTarget, setReportTarget] = useState<BorrowRequest | null>(null);
-  const { data: myReports, isLoading: myReportsLoading } = useMyReports();
+  // const { data: myReports, isLoading: myReportsLoading } = useMyReports(); // My Reports tab disabled
 
   const markRated = (requestId: string) => {
     setRatedRequestIds((prev) => {
@@ -75,7 +77,7 @@ export function DashboardPage() {
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>
       <Typography variant="h3" component="h1" sx={{ mb: 1 }}>
-        Dashboard
+        Transactions
       </Typography>
       <Typography variant="body2" sx={{ color: "text.secondary", mb: 3 }}>
         Manage borrow requests and active rentals for your listings.
@@ -107,7 +109,8 @@ export function DashboardPage() {
           }
         />
         <Tab label="Completed" />
-        <Tab label="My Reports" />
+        {/* <Tab label="My Reports" /> */}
+        <Tab label="My Requests" />
       </Tabs>
 
       {/* ── Tab 0: Pending ─────────────────────────────────────── */}
@@ -226,39 +229,12 @@ export function DashboardPage() {
           ) : (
             <Stack spacing={2}>
               {active.map((req) => (
-                <RequestRow key={req.id}>
-                  <RequestDetails req={req} />
-                  <Stack sx={{ flexShrink: 0 }} justifyContent="center" spacing={1}>
-                    {req.status === "return_requested" && (
-                      <Chip label="Return requested" size="small" color="warning" variant="filled" />
-                    )}
-                    <Button
-                      variant="outlined"
-                      color="primary"
-                      size="small"
-                      disabled={updateStatus.isPending}
-                      onClick={() =>
-                        updateStatus.mutate(
-                          { id: req.id, status: "completed" },
-                          {
-                            onSuccess: () => snackbar.success("Rental marked as returned."),
-                            onError: () => snackbar.error("Could not update rental. Please try again."),
-                          }
-                        )
-                      }
-                    >
-                      Mark as Returned
-                    </Button>
-                    <Button
-                      variant="outlined"
-                      color="error"
-                      size="small"
-                      onClick={() => setReportTarget(req)}
-                    >
-                      Report
-                    </Button>
-                  </Stack>
-                </RequestRow>
+                <ActiveRentalRow
+                  key={req.id}
+                  req={req}
+                  updateStatus={updateStatus}
+                  onReport={() => setReportTarget(req)}
+                />
               ))}
             </Stack>
           )}
@@ -304,7 +280,7 @@ export function DashboardPage() {
         </>
       )}
 
-      {/* ── Tab 3: My Reports ─────────────────────────────────── */}
+      {/* ── Tab 3: My Reports (disabled) ──────────────────────
       {tab === 3 && (
         <>
           {myReportsLoading ? (
@@ -365,6 +341,10 @@ export function DashboardPage() {
           )}
         </>
       )}
+      */}
+
+      {/* ── Tab 3: My Requests ─────────────────────────────────── */}
+      {tab === 3 && <MyRequestsTab />}
 
       <RateBorrowerDialog
         request={reviewTarget}
@@ -487,6 +467,70 @@ function RequestDetails({
         </Typography>
       )}
     </Stack>
+  );
+}
+
+function ActiveRentalRow({
+  req,
+  updateStatus,
+  onReport,
+}: {
+  req: BorrowRequest;
+  updateStatus: ReturnType<typeof useUpdateRequestStatus>;
+  onReport: () => void;
+}) {
+  const snackbar = useSnackbar();
+  const { data: payment } = usePaymentStatus(req.id);
+  const confirmCashPayment = useConfirmCashPayment();
+  const isCashPending = payment?.method === "cash" && payment?.status === "pending";
+  const isPaid = payment?.status === "paid";
+
+  return (
+    <RequestRow>
+      <RequestDetails req={req} />
+      <Stack sx={{ flexShrink: 0 }} justifyContent="center" spacing={1}>
+        {req.status === "return_requested" && (
+          <Chip label="Return requested" size="small" color="warning" variant="filled" />
+        )}
+        {isPaid && <Chip label="Paid" size="small" color="success" variant="filled" />}
+        {isCashPending && (
+          <Button
+            variant="outlined"
+            color="secondary"
+            size="small"
+            disabled={confirmCashPayment.isPending}
+            onClick={() =>
+              confirmCashPayment.mutate(payment.id, {
+                onSuccess: () => snackbar.success("Cash payment confirmed."),
+                onError: () => snackbar.error("Could not confirm. Please try again."),
+              })
+            }
+          >
+            Confirm Cash Received
+          </Button>
+        )}
+        <Button
+          variant="outlined"
+          color="primary"
+          size="small"
+          disabled={updateStatus.isPending}
+          onClick={() =>
+            updateStatus.mutate(
+              { id: req.id, status: "completed" },
+              {
+                onSuccess: () => snackbar.success("Rental marked as returned."),
+                onError: () => snackbar.error("Could not update rental. Please try again."),
+              }
+            )
+          }
+        >
+          Mark as Returned
+        </Button>
+        <Button variant="outlined" color="error" size="small" onClick={onReport}>
+          Report
+        </Button>
+      </Stack>
+    </RequestRow>
   );
 }
 

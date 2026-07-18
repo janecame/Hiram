@@ -10,5 +10,7 @@ router.post("/webhook", express.raw({ type: "application/json" }), PaymentContro
 
 router.post("/checkout", express.json(), requireAuth, PaymentController.createCheckout);
 router.get("/request/:requestId", express.json(), requireAuth, PaymentController.getStatus);
+router.post("/cash", express.json(), requireAuth, PaymentController.createCash);
+router.patch("/:id/confirm-cash", express.json(), requireAuth, PaymentController.confirmCash);
 
 export default router;

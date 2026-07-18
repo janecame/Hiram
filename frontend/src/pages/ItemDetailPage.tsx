@@ -121,13 +121,12 @@ export function ItemDetailPage() {
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>
       <Button
-        component={RouterLink}
-        to="/"
+        onClick={() => navigate(-1)}
         startIcon={<ArrowLeft size={18} />}
         sx={{ mb: 3 }}
         color="primary"
       >
-        Back to browse
+        Back
       </Button>
 
       {isLoading ? (

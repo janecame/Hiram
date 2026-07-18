@@ -6,22 +6,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import {
-  Button,
-  Checkbox,
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  FormControlLabel,
-  Link,
-  Stack,
-  TextField,
-  ToggleButton,
-  ToggleButtonGroup,
-  Typography,
-} from "@mui/material";
-import { Link as RouterLink } from "react-router-dom";
-import { apiLogin, apiRegister } from "../api/auth";
+import { useNavigate } from "react-router-dom";
+import type { AuthResponse } from "../api/auth";
 import type { User } from "../types/user";
 
 const TOKEN_KEY = "hiram_token";
@@ -66,53 +52,28 @@ interface AuthValue {
   login: () => void;
   logout: () => void;
   updateUser: (u: User) => void;
+  setSession: (resp: AuthResponse) => void;
 }
 
 const AuthContext = createContext<AuthValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(loadStoredUser);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [mode, setMode] = useState<"login" | "register">("login");
+  const navigate = useNavigate();
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [termsAccepted, setTermsAccepted] = useState(false);
-
-  const openModal = useCallback(() => {
-    setEmail(""); setPassword(""); setName(""); setError(""); setTermsAccepted(false); setMode("login");
-    setModalOpen(true);
-  }, []);
+  const login = useCallback(() => {
+    navigate("/login");
+  }, [navigate]);
 
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
     setCurrentUser(null);
   }, []);
 
-  const handleSubmit = async () => {
-    setError("");
-    setBusy(true);
-    try {
-      let resp;
-      if (mode === "login") {
-        resp = await apiLogin({ email, password });
-      } else {
-        if (!name.trim()) { setError("Name is required"); setBusy(false); return; }
-        if (!termsAccepted) { setError("You must accept the Terms and Conditions to register."); setBusy(false); return; }
-        resp = await apiRegister({ name: name.trim(), email, password, termsAcceptedAt: new Date().toISOString() });
-      }
-      localStorage.setItem(TOKEN_KEY, resp.token);
-      setCurrentUser(resp.user);
-      setModalOpen(false);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Something went wrong");
-    } finally {
-      setBusy(false);
-    }
-  };
+  const setSession = useCallback((resp: AuthResponse) => {
+    localStorage.setItem(TOKEN_KEY, resp.token);
+    setCurrentUser(resp.user);
+  }, []);
 
   const updateUser = useCallback((u: User) => setCurrentUser(u), []);
 
@@ -120,109 +81,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       isAuthenticated: currentUser !== null,
       currentUser,
-      login: openModal,
+      login,
       logout,
       updateUser,
+      setSession,
     }),
-    [currentUser, openModal, logout, updateUser]
+    [currentUser, login, logout, updateUser, setSession]
   );
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-
-      <Dialog open={modalOpen} onClose={() => setModalOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ pb: 0 }}>
-          {mode === "login" ? "Log in to Hiram" : "Create an account"}
-        </DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ mt: 1 }}>
-            <ToggleButtonGroup
-              value={mode}
-              exclusive
-              onChange={(_, v) => { if (v) { setMode(v as "login" | "register"); setError(""); setTermsAccepted(false); } }}
-              size="small"
-              fullWidth
-            >
-              <ToggleButton value="login">Log in</ToggleButton>
-              <ToggleButton value="register">Sign up</ToggleButton>
-            </ToggleButtonGroup>
-
-            {mode === "register" && (
-              <TextField
-                label="Your name"
-                fullWidth
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                autoFocus
-              />
-            )}
-            <TextField
-              label="Email"
-              type="email"
-              fullWidth
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoFocus={mode === "login"}
-            />
-            <TextField
-              label="Password"
-              type="password"
-              fullWidth
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") { void handleSubmit(); } }}
-            />
-
-            {mode === "register" && (
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    size="small"
-                    checked={termsAccepted}
-                    onChange={(e) => setTermsAccepted(e.target.checked)}
-                  />
-                }
-                label={
-                  <Typography variant="body2">
-                    I agree to the{" "}
-                    <Link
-                      component={RouterLink}
-                      to="/terms"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      underline="hover"
-                      color="primary"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      Terms and Conditions
-                    </Link>
-                  </Typography>
-                }
-              />
-            )}
-
-            {error && (
-              <Typography variant="body2" color="error">
-                {error}
-              </Typography>
-            )}
-
-            <Button
-              variant="contained"
-              color="secondary"
-              size="large"
-              disabled={busy || !email || !password || (mode === "register" && !termsAccepted)}
-              onClick={() => void handleSubmit()}
-            >
-              {busy ? "…" : mode === "login" ? "Log in" : "Create account"}
-            </Button>
-
-          </Stack>
-        </DialogContent>
-      </Dialog>
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth(): AuthValue {

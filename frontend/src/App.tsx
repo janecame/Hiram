@@ -12,12 +12,14 @@ import { ItemDetailPage } from "./pages/ItemDetailPage";
 import { ListItemPage } from "./pages/ListItemPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { DashboardPage } from "./pages/DashboardPage";
-import { MyItemsPage } from "./pages/MyItemsPage";
+// import { MyItemsPage } from "./pages/MyItemsPage"; // My Items page disabled — merged into ProfilePage
 import { EditItemPage } from "./pages/EditItemPage";
 import { MessagesPage } from "./pages/MessagesPage";
 import { AdminPage } from "./pages/AdminPage";
 import { NotificationsPage } from "./pages/NotificationsPage";
 import { TermsPage } from "./pages/TermsPage";
+import { LoginPage } from "./pages/LoginPage";
+import { SignupPage } from "./pages/SignupPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -37,13 +39,16 @@ function AppLayout() {
           <Route path="/item/:id" element={<ItemDetailPage />} />
           <Route path="/list" element={<ListItemPage />} />
           <Route path="/profile/:owner" element={<ProfilePage />} />
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/my-items" element={<MyItemsPage />} />
+          <Route path="/transaction" element={<DashboardPage />} />
+          <Route path="/dashboard" element={<Navigate to="/transaction" replace />} />
+          {/* <Route path="/my-items" element={<MyItemsPage />} /> */}
           <Route path="/item/:id/edit" element={<EditItemPage />} />
           <Route path="/messages" element={<MessagesPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/admin" element={<AdminPage />} />
           <Route path="/terms" element={<TermsPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignupPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Box>
@@ -59,11 +64,11 @@ export default function App() {
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <SnackbarProvider>
-          <AuthProvider>
-            <BrowserRouter>
+          <BrowserRouter>
+            <AuthProvider>
               <AppLayout />
-            </BrowserRouter>
-          </AuthProvider>
+            </AuthProvider>
+          </BrowserRouter>
         </SnackbarProvider>
       </ThemeProvider>
     </QueryClientProvider>

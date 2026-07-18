@@ -1,12 +1,12 @@
 name: CI Build Check
 
-# Runs on pushes to the pre-deployment branch, and on PRs into master so the
-# job reports a named status check that branch protection can require.
+# Runs on pushes to the pre-deployment branch, and on PRs into pre-master-branch
+# or master so the job reports a named status check that branch protection can require.
 on:
   push:
     branches: [pre-master-branch]
   pull_request:
-    branches: [master]
+    branches: [pre-master-branch, master]
 
 jobs:
   build:

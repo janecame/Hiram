@@ -14,7 +14,7 @@ import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PHLocationPicker } from "../components/PHLocationPicker";
 import { LocationPicker } from "../components/LocationPicker";
-import { Link as RouterLink, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { itemFormSchema, type ItemFormValues } from "../schemas/item-form";
 import { useCreateItem } from "../hooks/useItems";
 import { useAuth } from "../auth/AuthContext";
@@ -226,13 +226,12 @@ export function ListItemPage() {
   return (
     <Container maxWidth="sm" sx={{ py: { xs: 3, md: 5 } }}>
       <Button
-        component={RouterLink}
-        to="/"
+        onClick={() => navigate(-1)}
         startIcon={<ArrowLeft size={18} />}
         sx={{ mb: 3 }}
         color="primary"
       >
-        Back to browse
+        Back
       </Button>
 
       <Stack spacing={1} sx={{ mb: 4 }}>

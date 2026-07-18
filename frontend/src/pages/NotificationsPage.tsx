@@ -10,7 +10,7 @@ import {
   Typography,
 } from "@mui/material";
 import { ArrowLeft, Bell } from "lucide-react";
-import { Link as RouterLink, Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { useSnackbar } from "../context/SnackbarContext";
 import { useMarkAllRead, useMarkRead, useNotifications } from "../hooks/useNotifications";
@@ -43,7 +43,7 @@ export function NotificationsPage() {
   const handleClick = (id: string, requestId?: string, type?: string) => {
     markRead.mutate(id);
     if (requestId) {
-      navigate("/dashboard");
+      navigate("/transaction");
     } else if (type === "id_verified" || type === "id_rejected") {
       navigate(`/profile/${encodeURIComponent(currentUser.name)}`);
     }
@@ -52,13 +52,12 @@ export function NotificationsPage() {
   return (
     <Container maxWidth="sm" sx={{ py: { xs: 3, md: 5 } }}>
       <Button
-        component={RouterLink}
-        to="/"
+        onClick={() => navigate(-1)}
         startIcon={<ArrowLeft size={18} />}
         sx={{ mb: 3 }}
         color="primary"
       >
-        Back to browse
+        Back
       </Button>
 
       <Box

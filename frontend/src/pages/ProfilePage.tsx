@@ -17,6 +17,8 @@ import {
   Rating,
   Select,
   Stack,
+  Tab,
+  Tabs,
   TextField,
   Typography,
 } from "@mui/material";
@@ -30,6 +32,7 @@ import {
   MessageCircle,
   Pencil,
   Phone,
+  Plus,
   ShieldAlert,
   ShieldCheck,
   Star,
@@ -49,6 +52,8 @@ import {
   type User,
 } from "../types/user";
 import type { Review } from "../types/review";
+import { ItemsGrid, ArchivedGrid, DeleteConfirmDialog } from "./MyItemsPage";
+import type { Item } from "../types/item";
 
 export function ProfilePage() {
   const { owner } = useParams<{ owner: string }>();
@@ -89,13 +94,12 @@ export function ProfilePage() {
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>
       <Button
-        component={RouterLink}
-        to="/"
+        onClick={() => navigate(-1)}
         startIcon={<ArrowLeft size={18} />}
         sx={{ mb: 3 }}
         color="primary"
       >
-        Back to browse
+        Back
       </Button>
 
       {/* Profile header */}
@@ -227,19 +231,11 @@ export function ProfilePage() {
 
       {/* Credentials & Verifications */}
       {userLoading ? null : user ? (
-        <Box
-          sx={{
-            border: "1px solid",
-            borderColor: "divider",
-            borderRadius: 3,
-            p: 2.5,
-            mb: 4,
-          }}
-        >
+        <Box sx={{ mb: 2.5 }}>
           <Typography variant="overline" sx={{ color: "text.secondary" }}>
             Credentials & Verifications
           </Typography>
-          <Stack spacing={1.25} sx={{ mt: 1 }}>
+          <Stack spacing={0.75} sx={{ mt: 0.5 }}>
             <CredentialRow
               icon={<Mail size={16} />}
               label="Email"
@@ -257,18 +253,20 @@ export function ProfilePage() {
             )}
           </Stack>
           {isBusiness && (
-            <Typography variant="caption" sx={{ color: "text.secondary", mt: 1.5, display: "block" }}>
+            <Typography variant="caption" sx={{ color: "text.secondary", mt: 1, display: "block" }}>
               Business-paper verification arrives in Phase 2 — submitted documents are not yet verified.
             </Typography>
           )}
         </Box>
       ) : (
-        <Box sx={{ mb: 4 }}>
+        <Box sx={{ mb: 2.5 }}>
           <Typography variant="body2" sx={{ color: "text.secondary" }}>
             This lister hasn't set up a full profile yet.
           </Typography>
         </Box>
       )}
+
+      {user && <ProfileItemsSection ownerName={user.name} readOnly={!isOwnProfile} />}
 
       {user && <BorrowerRatingsSection userId={user.id} />}
 
@@ -343,16 +341,8 @@ function BorrowerRatingsSection({ userId }: { userId: string }) {
       : null;
 
   return (
-    <Box
-      sx={{
-        border: "1px solid",
-        borderColor: "divider",
-        borderRadius: 3,
-        p: 2.5,
-        mb: 4,
-      }}
-    >
-      <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 1.5 }}>
+    <Box sx={{ mb: 2.5 }}>
+      <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 0.75 }}>
         <Typography variant="overline" sx={{ color: "text.secondary" }}>
           Borrower Rating
         </Typography>
@@ -414,6 +404,66 @@ function BorrowerRatingsSection({ userId }: { userId: string }) {
             </Stack>
           ))}
         </Stack>
+      )}
+    </Box>
+  );
+}
+
+function ProfileItemsSection({ ownerName, readOnly }: { ownerName: string; readOnly: boolean }) {
+  const [tab, setTab] = useState(0);
+  const [deleteTarget, setDeleteTarget] = useState<Item | null>(null);
+
+  return (
+    <Box sx={{ mb: 2.5 }}>
+      <Stack
+        direction="row"
+        alignItems="center"
+        justifyContent="space-between"
+        sx={{ mb: 1 }}
+      >
+        <Typography variant="overline" sx={{ color: "text.secondary" }}>
+          My Items
+        </Typography>
+        {!readOnly && tab === 0 && (
+          <Button
+            component={RouterLink}
+            to="/list"
+            variant="outlined"
+            color="secondary"
+            size="small"
+            startIcon={<Plus size={16} />}
+          >
+            List an item
+          </Button>
+        )}
+      </Stack>
+
+      <Tabs
+        value={tab}
+        onChange={(_, v) => setTab(v)}
+        sx={{ mb: 2, borderBottom: "1px solid", borderColor: "divider" }}
+      >
+        <Tab label="My Items" />
+        <Tab label="Archived" />
+      </Tabs>
+
+      {tab === 0 && (
+        <ItemsGrid
+          ownerName={ownerName}
+          onDelete={readOnly ? undefined : setDeleteTarget}
+          readOnly={readOnly}
+        />
+      )}
+      {tab === 1 && (
+        <ArchivedGrid
+          ownerName={ownerName}
+          onDelete={readOnly ? undefined : setDeleteTarget}
+          readOnly={readOnly}
+        />
+      )}
+
+      {!readOnly && (
+        <DeleteConfirmDialog item={deleteTarget} onClose={() => setDeleteTarget(null)} />
       )}
     </Box>
   );

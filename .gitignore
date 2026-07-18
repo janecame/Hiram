@@ -25,3 +25,4 @@ sh.exe.stackdump
 bash-log.txt
 edit-log.txt
 settings.local.json
+.devswarm-temp/

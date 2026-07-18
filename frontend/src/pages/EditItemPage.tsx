@@ -15,7 +15,7 @@ import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PHLocationPicker } from "../components/PHLocationPicker";
 import { LocationPicker } from "../components/LocationPicker";
-import { Link as RouterLink, Navigate, useNavigate, useParams } from "react-router-dom";
+import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { itemFormSchema, type ItemFormValues } from "../schemas/item-form";
 import { useItem } from "../hooks/useItem";
 import { useUpdateItem } from "../hooks/useItems";
@@ -211,8 +211,7 @@ function EditForm({
   return (
     <Container maxWidth="sm" sx={{ py: { xs: 3, md: 5 } }}>
       <Button
-        component={RouterLink}
-        to={`/item/${itemId}`}
+        onClick={() => navigate(-1)}
         startIcon={<ArrowLeft size={18} />}
         sx={{ mb: 3 }}
         color="primary"

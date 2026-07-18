@@ -25,7 +25,7 @@ import { useAuth } from "../auth/AuthContext";
 import { useSnackbar } from "../context/SnackbarContext";
 import { useArchivedItemsByOwner, useDeleteItem, useItemsByOwner, useSetItemArchived } from "../hooks/useItems";
 import { useRequests, useRespondToCounter } from "../hooks/useRequests";
-import { useCreateCheckout, usePaymentStatus } from "../hooks/usePayments";
+import { useCreateCashPayment, useCreateCheckout, usePaymentStatus } from "../hooks/usePayments";
 import { useCreateReview } from "../hooks/useReviews";
 import { ItemCard } from "../components/ItemCard";
 import type { CardMenuItem } from "../components/ItemCard";
@@ -75,6 +75,7 @@ const gridSx = {
 
 export function MyItemsPage() {
   const { currentUser, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [deleteTarget, setDeleteTarget] = useState<Item | null>(null);
   const tabParam = searchParams.get("tab");
@@ -93,13 +94,12 @@ export function MyItemsPage() {
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>
       <Button
-        component={RouterLink}
-        to="/"
+        onClick={() => navigate(-1)}
         startIcon={<ArrowLeft size={18} />}
         sx={{ mb: 3 }}
         color="primary"
       >
-        Back to browse
+        Back
       </Button>
 
       <Box
@@ -152,12 +152,14 @@ export function MyItemsPage() {
   );
 }
 
-function ItemsGrid({
+export function ItemsGrid({
   ownerName,
   onDelete,
+  readOnly = false,
 }: {
   ownerName: string;
-  onDelete: (item: Item) => void;
+  onDelete?: (item: Item) => void;
+  readOnly?: boolean;
 }) {
   const { data: items, isLoading } = useItemsByOwner(ownerName);
   const archiveMutation = useSetItemArchived();
@@ -186,43 +188,47 @@ function ItemsGrid({
   return (
     <Box sx={gridSx}>
       {items.map((item) => {
-        const menuItems: CardMenuItem[] = [
-          {
-            label: "Edit",
-            icon: <Pencil size={15} />,
-            onClick: () => navigate(`/item/${item.id}/edit`),
-          },
-          {
-            label: "Archive",
-            icon: <Archive size={15} />,
-            onClick: () =>
-              archiveMutation.mutate(
-                { id: item.id, archived: true },
-                {
-                  onSuccess: () => snackbar.success(`"${item.title}" archived.`),
-                  onError: () => snackbar.error("Could not archive item. Please try again."),
-                }
-              ),
-          },
-          {
-            label: "Delete",
-            icon: <Trash2 size={15} />,
-            onClick: () => onDelete(item),
-            danger: true,
-          },
-        ];
+        const menuItems: CardMenuItem[] = readOnly
+          ? []
+          : [
+              {
+                label: "Edit",
+                icon: <Pencil size={15} />,
+                onClick: () => navigate(`/item/${item.id}/edit`),
+              },
+              {
+                label: "Archive",
+                icon: <Archive size={15} />,
+                onClick: () =>
+                  archiveMutation.mutate(
+                    { id: item.id, archived: true },
+                    {
+                      onSuccess: () => snackbar.success(`"${item.title}" archived.`),
+                      onError: () => snackbar.error("Could not archive item. Please try again."),
+                    }
+                  ),
+              },
+              {
+                label: "Delete",
+                icon: <Trash2 size={15} />,
+                onClick: () => onDelete?.(item),
+                danger: true,
+              },
+            ];
         return <ItemCard key={item.id} item={item} menuItems={menuItems} />;
       })}
     </Box>
   );
 }
 
-function ArchivedGrid({
+export function ArchivedGrid({
   ownerName,
   onDelete,
+  readOnly = false,
 }: {
   ownerName: string;
-  onDelete: (item: Item) => void;
+  onDelete?: (item: Item) => void;
+  readOnly?: boolean;
 }) {
   const { data: items, isLoading } = useArchivedItemsByOwner(ownerName);
   const archiveMutation = useSetItemArchived();
@@ -250,33 +256,35 @@ function ArchivedGrid({
   return (
     <Box sx={gridSx}>
       {items.map((item) => {
-        const menuItems: CardMenuItem[] = [
-          {
-            label: "Unarchive",
-            icon: <ArchiveRestore size={15} />,
-            onClick: () =>
-              archiveMutation.mutate(
-                { id: item.id, archived: false },
-                {
-                  onSuccess: () => snackbar.success(`"${item.title}" unarchived.`),
-                  onError: () => snackbar.error("Could not unarchive item. Please try again."),
-                }
-              ),
-          },
-          {
-            label: "Delete",
-            icon: <Trash2 size={15} />,
-            onClick: () => onDelete(item),
-            danger: true,
-          },
-        ];
+        const menuItems: CardMenuItem[] = readOnly
+          ? []
+          : [
+              {
+                label: "Unarchive",
+                icon: <ArchiveRestore size={15} />,
+                onClick: () =>
+                  archiveMutation.mutate(
+                    { id: item.id, archived: false },
+                    {
+                      onSuccess: () => snackbar.success(`"${item.title}" unarchived.`),
+                      onError: () => snackbar.error("Could not unarchive item. Please try again."),
+                    }
+                  ),
+              },
+              {
+                label: "Delete",
+                icon: <Trash2 size={15} />,
+                onClick: () => onDelete?.(item),
+                danger: true,
+              },
+            ];
         return <ItemCard key={item.id} item={item} menuItems={menuItems} />;
       })}
     </Box>
   );
 }
 
-function DeleteConfirmDialog({
+export function DeleteConfirmDialog({
   item,
   onClose,
 }: {
@@ -339,7 +347,7 @@ const FILTER_LABELS: Record<RequestFilter, string> = {
   completed: "Completed",
 };
 
-function MyRequestsTab() {
+export function MyRequestsTab() {
   const { data: requests, isLoading } = useRequests("borrower");
   const snackbar = useSnackbar();
   const respondToCounter = useRespondToCounter();
@@ -474,7 +482,9 @@ function RequestHistoryRow({
   const isCounterOffered = req.status === "counter_offered";
   const { data: payment } = usePaymentStatus(req.status === "approved" ? req.id : undefined);
   const createCheckout = useCreateCheckout();
+  const createCashPayment = useCreateCashPayment();
   const snackbar = useSnackbar();
+  const isCashPending = payment?.method === "cash" && payment?.status === "pending";
 
   return (
     <Box
@@ -509,22 +519,20 @@ function RequestHistoryRow({
             Proposed: {formatRange(req.proposedStartDate, req.proposedEndDate)}
           </Typography>
         )}
-      </Stack>
-      <Stack
-        direction="row"
-        spacing={1.5}
-        alignItems="center"
-        sx={{ flexShrink: 0 }}
-        flexWrap="wrap"
-        useFlexGap
-      >
         <Chip
           label={isCounterOffered ? "Counter-offer" : req.status}
           size="small"
           color={STATUS_CHIP_COLOR[req.status]}
           variant="outlined"
-          sx={{ textTransform: "capitalize" }}
+          sx={{ textTransform: "capitalize", alignSelf: "flex-start" }}
         />
+      </Stack>
+      <Stack
+        direction="column"
+        spacing={1}
+        alignItems={{ xs: "flex-start", sm: "flex-end" }}
+        sx={{ flexShrink: 0 }}
+      >
         {isCounterOffered && (
           <Stack direction="row" spacing={1}>
             <Button
@@ -550,20 +558,37 @@ function RequestHistoryRow({
         {req.status === "approved" &&
           (payment?.status === "paid" ? (
             <Chip label="Paid" size="small" color="success" variant="filled" />
+          ) : isCashPending ? (
+            <Chip label="Awaiting lister confirmation" size="small" color="warning" variant="outlined" />
           ) : (
-            <Button
-              size="small"
-              variant="contained"
-              color="secondary"
-              disabled={createCheckout.isPending}
-              onClick={() =>
-                createCheckout.mutate(req.id, {
-                  onError: () => snackbar.error("Could not start payment. Please try again."),
-                })
-              }
-            >
-              Pay now
-            </Button>
+            <Stack direction="row" spacing={1}>
+              <Button
+                size="small"
+                variant="contained"
+                color="secondary"
+                disabled={createCheckout.isPending}
+                onClick={() =>
+                  createCheckout.mutate(req.id, {
+                    onError: () => snackbar.error("Could not start payment. Please try again."),
+                  })
+                }
+              >
+                Pay Online
+              </Button>
+              <Button
+                size="small"
+                variant="outlined"
+                color="secondary"
+                disabled={createCashPayment.isPending}
+                onClick={() =>
+                  createCashPayment.mutate(req.id, {
+                    onError: () => snackbar.error("Could not start cash payment."),
+                  })
+                }
+              >
+                Pay in Person
+              </Button>
+            </Stack>
           ))}
         {req.status === "completed" &&
           (reviewed ? (
@@ -574,9 +599,16 @@ function RequestHistoryRow({
             </Button>
           ))}
         {(req.status === "approved" || req.status === "completed") && (
-          <Button size="small" variant="outlined" color="error" onClick={onReport}>
+          <Link
+            component="button"
+            type="button"
+            variant="body2"
+            color="error"
+            underline="hover"
+            onClick={onReport}
+          >
             Report
-          </Button>
+          </Link>
         )}
       </Stack>
     </Box>

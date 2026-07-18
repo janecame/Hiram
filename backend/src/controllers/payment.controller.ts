@@ -46,10 +46,51 @@ export const PaymentController = {
         res.status(404).json({ error: "No payment for this request" });
         return;
       }
+      if (req.user!.id !== payment.borrowerId && req.user!.id !== payment.listerId) {
+        res.status(403).json({ error: "Not allowed" });
+        return;
+      }
       res.status(200).json(payment);
     } catch (err) {
       console.error("GET /api/payments/request/:requestId failed:", err);
       res.status(500).json({ error: "Failed to load payment status" });
+    }
+  },
+
+  async createCash(req: Request, res: Response): Promise<void> {
+    const { requestId } = req.body as { requestId: string };
+    try {
+      const payment = await PaymentModel.createCashPayment(requestId, req.user!.id);
+      res.status(201).json(payment);
+    } catch (err) {
+      const status = (err as { status?: number }).status;
+      if (status === 404) { res.status(404).json({ error: "Request not found" }); return; }
+      if (status === 403) { res.status(403).json({ error: "Not allowed" }); return; }
+      if (status === 400) { res.status(400).json({ error: (err as Error).message }); return; }
+      console.error("POST /api/payments/cash failed:", err);
+      res.status(500).json({ error: "Failed to start cash payment" });
+    }
+  },
+
+  async confirmCash(req: Request, res: Response): Promise<void> {
+    try {
+      const result = await PaymentModel.confirmCashPayment(req.params["id"] as string, req.user!.id);
+      if (result === "not_found") { res.status(404).json({ error: "Payment not found" }); return; }
+      if (result === "forbidden") { res.status(403).json({ error: "Not allowed" }); return; }
+      if (result === "invalid_state") { res.status(400).json({ error: "Payment is not a pending cash payment" }); return; }
+
+      const borrowerNotif = await NotificationModel.create(
+        result.borrowerId,
+        "payment_received",
+        "The lister confirmed your cash payment. Your booking is confirmed.",
+        result.requestId
+      );
+      emitToUser(result.borrowerId, "notification", borrowerNotif);
+
+      res.status(200).json(result);
+    } catch (err) {
+      console.error("PATCH /api/payments/:id/confirm-cash failed:", err);
+      res.status(500).json({ error: "Failed to confirm cash payment" });
     }
   },
 

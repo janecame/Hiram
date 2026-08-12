@@ -9,6 +9,7 @@ router.put("/me", requireAuth, UserController.updateMe);
 router.post("/me/accept-terms", requireAuth, UserController.acceptTerms);
 router.post("/me/id", requireAuth, UserController.submitId);
 router.post("/me/avatar", requireAuth, UserController.updateAvatar);
+router.post("/me/password", requireAuth, UserController.changePassword);
 router.get("/search", UserController.search);
 router.get("/:name", UserController.getByName);
 

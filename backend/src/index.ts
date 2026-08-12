@@ -3,6 +3,7 @@ import { createServer } from "http";
 import express from "express";
 import type { NextFunction, Request, Response } from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import { Server } from "socket.io";
 import { initSocket } from "./socket";
 import itemsRouter from "./routes/items";
@@ -21,11 +22,22 @@ import { pool } from "./db";
 
 const app = express();
 const httpServer = createServer(app);
-const io = new Server(httpServer, { cors: { origin: "*" } });
+
+// Auth now rides on cookies (credentials: true), and browsers reject a wildcard
+// Access-Control-Allow-Origin on credentialed requests — so origins must be an
+// explicit list, never "*". Falls back to the Vite dev server origin only when
+// ALLOWED_ORIGINS is unset, so local dev keeps working without extra config.
+const allowedOrigins = process.env["ALLOWED_ORIGINS"]?.split(",").map((o) => o.trim()) ?? [
+  "http://localhost:5173",
+];
+const corsOptions = { origin: allowedOrigins, credentials: true };
+
+const io = new Server(httpServer, { cors: corsOptions });
 initSocket(io);
 const PORT = process.env["PORT"] ?? 3001;
 
-app.use(cors());
+app.use(cors(corsOptions));
+app.use(cookieParser());
 
 // Mounted before express.json() so the webhook route can read the raw body for signature verification.
 app.use("/api/payments", paymentsRouter);

@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import bcrypt from "bcryptjs";
 import { UserModel } from "../models/user.model";
 
 export const UserController = {
@@ -78,5 +79,31 @@ export const UserController = {
     }
     const user = await UserModel.submitId(req.user!.id, imageUrl);
     res.json(user);
+  },
+
+  async changePassword(req: Request, res: Response): Promise<void> {
+    const { currentPassword, newPassword } = req.body as {
+      currentPassword?: string;
+      newPassword?: string;
+    };
+
+    if (!currentPassword || !newPassword) {
+      res.status(400).json({ error: "currentPassword and newPassword are required" });
+      return;
+    }
+    if (newPassword.length < 8) {
+      res.status(400).json({ error: "New password must be at least 8 characters" });
+      return;
+    }
+
+    const passwordHash = await UserModel.getPasswordHash(req.user!.id);
+    if (!passwordHash || !(await bcrypt.compare(currentPassword, passwordHash))) {
+      res.status(401).json({ error: "Current password is incorrect" });
+      return;
+    }
+
+    const newHash = await bcrypt.hash(newPassword, 10);
+    await UserModel.changePassword(req.user!.id, newHash);
+    res.json({ success: true });
   },
 };

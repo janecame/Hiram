@@ -204,10 +204,18 @@ function MessageThread({
 }
 
 export function MessagesPage() {
-  const { currentUser, isAuthenticated, login } = useAuth();
+  const { currentUser, isAuthenticated, login, isLoading: authLoading } = useAuth();
   const { data: conversations = [], isLoading } = useConversations();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   useSocket();
+
+  if (authLoading) {
+    return (
+      <Box sx={{ display: "flex", justifyContent: "center", py: 10 }}>
+        <CircularProgress color="primary" />
+      </Box>
+    );
+  }
 
   if (!isAuthenticated) {
     return (

@@ -22,11 +22,8 @@ export function useSocket(): Socket | null {
       return;
     }
 
-    const token = localStorage.getItem('hiram_token');
-    if (!token) return;
-
     if (!socketInstance) {
-      socketInstance = io(BACKEND_URL, { auth: { token } });
+      socketInstance = io(BACKEND_URL, { withCredentials: true });
     }
     socketRef.current = socketInstance;
 

@@ -1,9 +1,13 @@
 # Database Rules
 
-## Current state: live PostgreSQL on AWS RDS
+## Current state: live PostgreSQL on Neon
+
+Migrated from AWS RDS to Neon (serverless Postgres, `neondb`) in August 2026 via `pg_dump --schema-only` + `psql` restore. The old RDS connection string is preserved as `AWS_RDS_DATABASE_URL` in `backend/.env` but is no longer active.
 
 Driver: `pg` (node-postgres). No ORM — raw SQL only. PostGIS is installed and active.
-Connection pool lives in `backend/src/db.ts`, reads `DATABASE_URL` from env.
+Connection pool lives in `backend/src/db.ts`, reads `DATABASE_URL` from env (Neon, pooled endpoint, SSL required).
+
+**Known gap:** two live tables, `claims` and `admin_audit_log`, have no corresponding file in `backend/migrations/` — they were schema-dumped directly rather than migrated. If starting a fresh environment from `npm run migrate` alone, these two tables will be missing; use the schema dump instead, or backfill the missing migration files.
 
 ## Live tables
 

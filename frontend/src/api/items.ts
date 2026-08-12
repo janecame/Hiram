@@ -1,5 +1,5 @@
 import type { Category, Item, ItemStatus, NewItemInput } from "../types/item";
-import { API_BASE } from "./_base";
+import { API_BASE, authFetch } from "./_base";
 
 export type SortKey = "nearest" | "cheapest" | "newest";
 
@@ -22,14 +22,8 @@ export interface PaginatedItems {
   totalPages: number;
 }
 
-function getToken(): string | null {
-  return localStorage.getItem("hiram_token");
-}
-
-function authHeaders(): Record<string, string> {
-  const token = getToken();
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
+// Ceiling for read requests so a hung backend rejects instead of pending forever.
+const READ_TIMEOUT_MS = 15_000;
 
 export async function listItems(
   filters: ListItemsFilters = {}
@@ -46,7 +40,14 @@ export async function listItems(
   if (filters.userLat != null) params.set("userLat", String(filters.userLat));
   if (filters.userLng != null) params.set("userLng", String(filters.userLng));
 
-  const res = await fetch(`${API_BASE}/api/items?${params}`);
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}/api/items?${params}`, {
+      signal: AbortSignal.timeout(READ_TIMEOUT_MS),
+    });
+  } catch {
+    throw new Error("Could not reach the server. Check your connection and try again.");
+  }
   if (!res.ok) throw new Error("Failed to fetch items");
   return res.json() as Promise<PaginatedItems>;
 }
@@ -71,9 +72,9 @@ export async function getItemsByOwner(
 }
 
 export async function setItemArchived(id: string, archived: boolean): Promise<Item> {
-  const res = await fetch(`${API_BASE}/api/items/${id}/archive`, {
+  const res = await authFetch(`/api/items/${id}/archive`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ archived }),
   });
   if (res.status === 401) throw new Error("Authentication required");
@@ -84,10 +85,7 @@ export async function setItemArchived(id: string, archived: boolean): Promise<It
 }
 
 export async function deleteItem(id: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/api/items/${id}`, {
-    method: "DELETE",
-    headers: authHeaders(),
-  });
+  const res = await authFetch(`/api/items/${id}`, { method: "DELETE" });
   if (res.status === 401) throw new Error("Authentication required");
   if (res.status === 403) throw new Error("You do not own this item");
   if (res.status === 404) throw new Error("Item not found");
@@ -95,9 +93,9 @@ export async function deleteItem(id: string): Promise<void> {
 }
 
 export async function createItem(input: NewItemInput): Promise<Item> {
-  const res = await fetch(`${API_BASE}/api/items`, {
+  const res = await authFetch(`/api/items`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
   });
   if (res.status === 401) throw new Error("Authentication required");
@@ -113,9 +111,9 @@ export async function getItemSuggestions(q: string): Promise<string[]> {
 }
 
 export async function updateItem(id: string, input: Partial<NewItemInput>): Promise<Item> {
-  const res = await fetch(`${API_BASE}/api/items/${id}`, {
+  const res = await authFetch(`/api/items/${id}`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
   });
   if (res.status === 401) throw new Error("Authentication required — please log out and log back in");

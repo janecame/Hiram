@@ -36,8 +36,15 @@ import { EmptyState } from "../components/EmptyState";
 export function EditItemPage() {
   const { id } = useParams<{ id: string }>();
   const { data: item, isLoading } = useItem(id);
-  const { currentUser, isAuthenticated } = useAuth();
+  const { currentUser, isAuthenticated, isLoading: authLoading } = useAuth();
 
+  if (authLoading) {
+    return (
+      <Stack alignItems="center" sx={{ py: 10 }}>
+        <CircularProgress color="primary" />
+      </Stack>
+    );
+  }
   if (!isAuthenticated || !currentUser) return <Navigate to="/" replace />;
 
   if (isLoading) {

@@ -18,10 +18,13 @@ import {
 export type { PaginatedItems };
 import type { NewItemInput } from "../types/item";
 
+// Single retry only so a real failure surfaces as an error state instead of
+// keeping the page in a loading skeleton through the full backoff sequence.
 export function useItems(filters: ListItemsFilters) {
   return useQuery({
     queryKey: ["items", filters],
     queryFn: () => listItems(filters),
+    retry: 1,
   });
 }
 

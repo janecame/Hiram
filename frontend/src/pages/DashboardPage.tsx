@@ -4,6 +4,7 @@ import {
   Box,
   Button,
   Chip,
+  CircularProgress,
   Container,
   Dialog,
   DialogActions,
@@ -46,7 +47,7 @@ function formatRange(start: string, end: string): string {
 }
 
 export function DashboardPage() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { data: requests, isLoading } = useRequests("lister");
   const updateStatus = useUpdateRequestStatus();
   const snackbar = useSnackbar();
@@ -65,6 +66,13 @@ export function DashboardPage() {
     });
   };
 
+  if (authLoading) {
+    return (
+      <Stack alignItems="center" sx={{ py: 10 }}>
+        <CircularProgress color="primary" />
+      </Stack>
+    );
+  }
   if (!isAuthenticated) return <Navigate to="/" replace />;
 
   const pending = (requests ?? []).filter((r) => r.status === "pending");

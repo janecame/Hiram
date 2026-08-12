@@ -1,6 +1,7 @@
 import {
   Box,
   Button,
+  CircularProgress,
   Container,
   MenuItem,
   Stack,
@@ -33,7 +34,7 @@ import {
 
 export function ListItemPage() {
   const navigate = useNavigate();
-  const { isAuthenticated, login, currentUser } = useAuth();
+  const { isAuthenticated, login, currentUser, isLoading: authLoading } = useAuth();
   const { mutateAsync, isPending } = useCreateItem();
   const snackbar = useSnackbar();
   const { data: fullProfile } = useUserByName(currentUser?.name);
@@ -208,6 +209,14 @@ export function ListItemPage() {
       console.log("[ListItem] full error object:", formErrors);
     }
   );
+
+  if (authLoading) {
+    return (
+      <Stack alignItems="center" sx={{ py: 10 }}>
+        <CircularProgress color="primary" />
+      </Stack>
+    );
+  }
 
   if (!isAuthenticated) {
     return (

@@ -26,7 +26,7 @@ export function SignupPage() {
         password,
         termsAcceptedAt: new Date().toISOString(),
       });
-      setSession(resp);
+      setSession(resp.user);
       navigate("/");
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Something went wrong");

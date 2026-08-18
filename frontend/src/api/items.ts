@@ -93,13 +93,24 @@ export async function deleteItem(id: string): Promise<void> {
 }
 
 export async function createItem(input: NewItemInput): Promise<Item> {
-  const res = await authFetch(`/api/items`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-  });
-  if (res.status === 401) throw new Error("Authentication required");
-  if (!res.ok) throw new Error("Failed to create item");
+  let res: Response;
+  try {
+    res = await authFetch(`/api/items`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+  } catch {
+    throw new Error("Could not reach the server. Check your connection and try again.");
+  }
+
+  if (!res.ok) {
+    if (res.status === 401) throw new Error("Authentication required");
+    // Surface the server error body so failures are diagnosable without console logging.
+    const detail = await res.text().catch(() => "");
+    throw new Error(`Failed to create item (${res.status}): ${detail || res.statusText}`);
+  }
+
   return res.json() as Promise<Item>;
 }
 

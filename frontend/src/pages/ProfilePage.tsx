@@ -294,7 +294,6 @@ export function ProfilePage() {
           <VerifyDialog
             open={verifyOpen}
             user={user}
-            isSubmitting={submitIdMutation.isPending}
             error={submitIdMutation.error ? (submitIdMutation.error as Error).message : undefined}
             onClose={() => setVerifyOpen(false)}
             onUpload={(file) =>
@@ -539,14 +538,12 @@ function VerificationBadge({ verified }: { verified: boolean }) {
 function VerifyDialog({
   open,
   user,
-  isSubmitting,
   error,
   onClose,
   onUpload,
 }: {
   open: boolean;
   user: User;
-  isSubmitting: boolean;
   error?: string;
   onClose: () => void;
   onUpload: (file: File) => void;
@@ -576,14 +573,14 @@ function VerifyDialog({
           {canUpload && (
             <>
               <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                Upload a clear photo of a valid government-issued ID (UMID, PhilSys, passport, driver's license).
-                JPEG or PNG only, max 5 MB.
+                ID verification uploads are temporarily unavailable. Please check back later.
               </Typography>
               <input
                 ref={inputRef}
                 type="file"
                 accept=".jpg,.jpeg,.png,image/jpeg,image/png"
                 hidden
+                disabled
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (!file) return;
@@ -595,11 +592,11 @@ function VerifyDialog({
               />
               <Button
                 variant="outlined"
-                disabled={isSubmitting}
+                disabled
                 onClick={() => inputRef.current?.click()}
                 fullWidth
               >
-                {isSubmitting ? "Uploading…" : "Choose ID image"}
+                Uploads temporarily disabled
               </Button>
             </>
           )}

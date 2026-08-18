@@ -391,6 +391,7 @@ export function ListItemPage() {
                 color="primary"
                 startIcon={<ImagePlus size={18} />}
                 onClick={() => fileInputRef.current?.click()}
+                disabled
                 sx={{ py: 2, borderStyle: "dashed" }}
               >
                 Upload a photo
@@ -402,10 +403,11 @@ export function ListItemPage() {
               type="file"
               accept="image/*"
               onChange={handleImageChange}
+              disabled
               sx={{ display: "none" }}
             />
             <Typography variant="caption" color="text.secondary">
-              Optional — no photo falls back to the category icon.
+              Photo uploads are temporarily unavailable — listings fall back to the category icon.
             </Typography>
           </Stack>
 

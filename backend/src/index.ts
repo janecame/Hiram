@@ -34,7 +34,7 @@ const corsOptions = { origin: allowedOrigins, credentials: true };
 
 const io = new Server(httpServer, { cors: corsOptions });
 initSocket(io);
-const PORT = process.env["PORT"] ?? 3001;
+const PORT = process.env["PORT"] ?? 3101;
 
 app.use(cors(corsOptions));
 app.use(cookieParser());

@@ -4,6 +4,7 @@
 
 - Use MUI components for all layout and UI. No plain `<div>` grids — use MUI `Box` with `sx` grid props.
 - All spacing and sizing go through `sx` prop or theme values. Do not write raw CSS files or inline `style={}` for anything the theme can express.
+- Exception: non-MUI children such as lucide icon SVGs cannot be targeted by `sx`; a minimal inline `style={{ marginRight: 10 }}` on those is accepted (see `Header.tsx`).
 - The theme (`src/theme/theme.ts`) is the single source of truth for palette, typography, and shape. Never hardcode color hex values in component files — use `color="primary"`, `color="secondary"`, `sx={{ color: "text.secondary" }}`, or `theme.palette.*` references.
 - Exception: `CategoryBlock` and `StampBadge` accept a color prop for per-category tints defined in `src/lib/format.ts` (`CATEGORY_VISUALS`).
 
@@ -32,17 +33,24 @@
 
 ## Routing
 
-Current routes:
+Current routes, as declared in `src/App.tsx`:
 - `/` — BrowsePage
 - `/item/:id` — ItemDetailPage
 - `/list` — ListItemPage
 - `/item/:id/edit` — EditItemPage
 - `/profile/:owner` — ProfilePage
-- `/dashboard` — DashboardPage
-- `/my-items` — MyItemsPage
+- `/transaction` — DashboardPage
+- `/dashboard` — redirects to `/transaction`
 - `/messages` — MessagesPage
 - `/notifications` — NotificationsPage
 - `/admin` — AdminPage (admin only)
+- `/terms` — TermsPage
+- `/login` — LoginPage
+- `/signup` — SignupPage
+- `*` — redirects to `/`
+
+`MyItemsPage.tsx` still exists but its `/my-items` route is **commented out** in `App.tsx` — the page
+is unreachable. Do not link to `/my-items`; either restore the route or retire the page.
 
 Use `RouterLink` from `react-router-dom` as the `component` prop on MUI components that need navigation — do not nest `<a>` inside MUI interactive elements.
 
@@ -59,6 +67,11 @@ Use `RouterLink` from `react-router-dom` as the `component` prop on MUI componen
 | Mono / labels | JetBrains Mono |
 
 Tokens are wired in `src/theme/theme.ts`. Never hardcode these hex values in component files.
+
+Known offenders as of 2026-08-19 (open cleanup, do not add more): `Footer.tsx` (`#FFFFFF`, `#5C6660`),
+`LocationPicker.tsx` (`#C94A2A` on a Leaflet `Polyline` — a third-party prop that cannot take a
+theme token directly, so read it from `theme.palette.secondary.main` instead), and
+`ItemDetailPage.tsx` (`#C94A2A`, `#1C4A3A`).
 
 ## Responsive grid
 

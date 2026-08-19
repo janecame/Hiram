@@ -3,23 +3,14 @@ import type {
   NewRequestInput,
   RequestStatus,
 } from "../types/request";
-import { API_BASE } from "./_base";
-
-function getToken(): string | null {
-  return localStorage.getItem("hiram_token");
-}
-
-function authHeaders(): Record<string, string> {
-  const token = getToken();
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
+import { API_BASE, authFetch } from "./_base";
 
 export async function createRequest(
   input: NewRequestInput
 ): Promise<BorrowRequest> {
-  const res = await fetch(`${API_BASE}/api/requests`, {
+  const res = await authFetch("/api/requests", {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
   });
   if (res.status === 401) throw new Error("Authentication required");
@@ -34,9 +25,7 @@ export async function listRequests(
   role: "lister" | "borrower"
 ): Promise<BorrowRequest[]> {
   const params = new URLSearchParams({ role });
-  const res = await fetch(`${API_BASE}/api/requests?${params}`, {
-    headers: { ...authHeaders() },
-  });
+  const res = await authFetch(`/api/requests?${params}`);
   if (res.status === 401) throw new Error("Authentication required");
   if (!res.ok) throw new Error("Failed to fetch requests");
   return res.json() as Promise<BorrowRequest[]>;
@@ -46,9 +35,9 @@ export async function updateRequestStatus(
   id: string,
   status: RequestStatus
 ): Promise<BorrowRequest> {
-  const res = await fetch(`${API_BASE}/api/requests/${id}/status`, {
+  const res = await authFetch(`/api/requests/${id}/status`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ status }),
   });
   if (res.status === 401) throw new Error("Authentication required");
@@ -67,9 +56,9 @@ export async function counterOfferRequest(
   proposedStartDate: string,
   proposedEndDate: string
 ): Promise<BorrowRequest> {
-  const res = await fetch(`${API_BASE}/api/requests/${id}/counter`, {
+  const res = await authFetch(`/api/requests/${id}/counter`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ proposedStartDate, proposedEndDate }),
   });
   if (res.status === 401) throw new Error("Authentication required");
@@ -84,9 +73,9 @@ export async function respondToCounterOffer(
   id: string,
   action: "accept" | "decline"
 ): Promise<BorrowRequest> {
-  const res = await fetch(`${API_BASE}/api/requests/${id}/counter-response`, {
+  const res = await authFetch(`/api/requests/${id}/counter-response`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action }),
   });
   if (res.status === 401) throw new Error("Authentication required");

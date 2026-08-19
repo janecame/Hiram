@@ -214,12 +214,42 @@ export const UserModel = {
     const result = await pool.query(
       `UPDATE public.users
          SET disabled = $1,
-             disabled_reason = $2
+             disabled_reason = $2,
+             token_valid_after = CASE WHEN $1 THEN NOW() ELSE token_valid_after END
        WHERE id = $3
        RETURNING *`,
       [disabled, disabled ? (reason ?? null) : null, id]
     );
     return result.rows[0] ? rowToUser(result.rows[0] as Record<string, unknown>) : undefined;
+  },
+
+  /** Earliest issue-time a token must have to still be accepted; null means no restriction. */
+  async getTokenValidAfter(id: string): Promise<Date | null> {
+    const result = await pool.query(
+      `SELECT token_valid_after FROM public.users WHERE id = $1`,
+      [id]
+    );
+    const value = result.rows[0]?.["token_valid_after"] as Date | null | undefined;
+    return value ?? null;
+  },
+
+  async getPasswordHash(id: string): Promise<string | undefined> {
+    const result = await pool.query(
+      `SELECT password_hash FROM public.users WHERE id = $1`,
+      [id]
+    );
+    return result.rows[0]?.["password_hash"] as string | undefined;
+  },
+
+  /** Updates the password and invalidates any tokens issued before now. */
+  async changePassword(id: string, passwordHash: string): Promise<void> {
+    await pool.query(
+      `UPDATE public.users
+         SET password_hash = $1,
+             token_valid_after = NOW()
+       WHERE id = $2`,
+      [passwordHash, id]
+    );
   },
 
   async emailExists(email: string): Promise<boolean> {

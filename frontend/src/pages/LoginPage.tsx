@@ -17,7 +17,7 @@ export function LoginPage() {
     setBusy(true);
     try {
       const resp = await apiLogin({ email, password });
-      setSession(resp);
+      setSession(resp.user);
       navigate("/");
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Something went wrong");

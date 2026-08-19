@@ -14,8 +14,16 @@ const s3 = new S3Client({
 const BUCKET = process.env["AWS_S3_BUCKET"]!;
 const REGION = process.env["AWS_REGION"]!;
 
+// Image uploads are temporarily disabled while S3 access is on hold.
+const UPLOADS_DISABLED = true;
+
 export const UploadController = {
   async presign(req: Request, res: Response): Promise<void> {
+    if (UPLOADS_DISABLED) {
+      res.status(503).json({ error: "Image uploads are temporarily disabled" });
+      return;
+    }
+
     const { filename, contentType, prefix } = req.body as {
       filename?: string;
       contentType?: string;

@@ -1,8 +1,7 @@
 import type { User } from "../types/user";
-import { API_BASE } from "./_base";
+import { authFetch } from "./_base";
 
 export interface AuthResponse {
-  token: string;
   user: User;
 }
 
@@ -13,7 +12,7 @@ export async function apiRegister(data: {
   accountType?: "solo" | "business";
   termsAcceptedAt?: string;
 }): Promise<AuthResponse> {
-  const res = await fetch(`${API_BASE}/api/auth/register`, {
+  const res = await authFetch("/api/auth/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -27,7 +26,7 @@ export async function apiLogin(data: {
   email: string;
   password: string;
 }): Promise<AuthResponse> {
-  const res = await fetch(`${API_BASE}/api/auth/login`, {
+  const res = await authFetch("/api/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -35,4 +34,8 @@ export async function apiLogin(data: {
   const body = (await res.json()) as AuthResponse & { error?: string };
   if (!res.ok) throw new Error(body.error ?? "Login failed");
   return body;
+}
+
+export async function apiLogout(): Promise<void> {
+  await authFetch("/api/auth/logout", { method: "POST" });
 }

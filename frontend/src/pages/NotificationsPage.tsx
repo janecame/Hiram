@@ -27,13 +27,20 @@ function timeAgo(iso: string): string {
 }
 
 export function NotificationsPage() {
-  const { isAuthenticated, currentUser } = useAuth();
+  const { isAuthenticated, currentUser, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   const snackbar = useSnackbar();
   const { data: notifications = [], isLoading } = useNotifications({ limit: 100 });
   const markRead = useMarkRead();
   const markAllRead = useMarkAllRead();
 
+  if (authLoading) {
+    return (
+      <Box sx={{ display: "flex", justifyContent: "center", py: 10 }}>
+        <CircularProgress color="primary" />
+      </Box>
+    );
+  }
   if (!isAuthenticated || !currentUser) {
     return <Navigate to="/" replace />;
   }

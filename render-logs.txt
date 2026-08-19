@@ -1,0 +1,38 @@
+2026-07-18T13:45:46.473725016Z ==> Downloading cache...
+2026-07-18T13:45:46.507614427Z ==> Cloning from https://github.com/janecame/Hiram
+2026-07-18T13:45:47.469181723Z ==> Checking out commit b6a577393b6677ab0e520dc1cd3b7ab118fec69c in branch pre-master-branch
+2026-07-18T13:45:49.102814774Z ==> Downloaded 48MB in 1s. Extraction took 1s.
+2026-07-18T13:45:50.559393012Z ==> Using Node.js version 24.14.1 (default)
+2026-07-18T13:45:50.559422703Z ==> Docs on specifying a Node.js version: https://render.com/docs/node-version
+2026-07-18T13:45:50.606858266Z ==> Running build command 'npm install; npm run build'...
+2026-07-18T13:45:52.173545995Z 
+2026-07-18T13:45:52.173566356Z up to date, audited 559 packages in 1s
+2026-07-18T13:45:52.173570276Z 
+2026-07-18T13:45:52.173695899Z 78 packages are looking for funding
+2026-07-18T13:45:52.173781701Z   run `npm fund` for details
+2026-07-18T13:45:52.175715128Z 
+2026-07-18T13:45:52.175723929Z 1 moderate severity vulnerability
+2026-07-18T13:45:52.175726359Z 
+2026-07-18T13:45:52.175729299Z To address all issues, run:
+2026-07-18T13:45:52.175731649Z   npm audit fix
+2026-07-18T13:45:52.175733949Z 
+2026-07-18T13:45:52.175736359Z Run `npm audit` for details.
+2026-07-18T13:45:52.391066161Z 
+2026-07-18T13:45:52.391084751Z > hiram-backend@0.1.0 build
+2026-07-18T13:45:52.391087482Z > tsc
+2026-07-18T13:45:52.391089602Z 
+2026-07-18T13:45:55.54445956Z ==> Uploading build...
+2026-07-18T13:45:59.128645288Z ==> Uploaded in 2.5s. Compression took 1.1s
+2026-07-18T13:45:59.128650728Z ==> Build successful 🎉
+2026-07-18T13:46:02.475252002Z ==> Deploying...
+2026-07-18T13:46:02.684979886Z ==> Setting WEB_CONCURRENCY=1 by default, based on available CPUs in the instance
+2026-07-18T13:46:12.491385093Z ==> Running 'npm run start'
+2026-07-18T13:46:13.789458326Z 
+2026-07-18T13:46:13.789485577Z > hiram-backend@0.1.0 start
+2026-07-18T13:46:13.789492467Z > node dist/index.js
+2026-07-18T13:46:13.789495867Z 
+2026-07-18T13:46:16.28174673Z Hiram API running on http://localhost:3001
+2026-07-18T14:04:03.419844347Z ==> Timed Out
+2026-07-18T14:04:03.422173833Z ==> Common ways to troubleshoot your deploy: https://render.com/docs/troubleshooting-deploys
+2026-07-18T14:04:19.117005631Z ==> Detected service running on port 3001
+2026-07-18T14:04:19.472796517Z ==> Docs on specifying a port: https://render.com/docs/web-services#port-binding

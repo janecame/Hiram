@@ -1,12 +1,5 @@
 import type { User } from "../types/user";
-import { API_BASE } from "./_base";
-
-const TOKEN_KEY = "hiram_token";
-
-function authHeader(): HeadersInit {
-  const token = localStorage.getItem(TOKEN_KEY);
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
+import { API_BASE, authFetch } from "./_base";
 
 export async function getUserByName(name: string): Promise<User | null> {
   const res = await fetch(`${API_BASE}/api/users/${encodeURIComponent(name)}`);
@@ -22,23 +15,23 @@ export async function searchUsers(q: string): Promise<User[]> {
 }
 
 export async function getUser(_id: string): Promise<User | null> {
-  const res = await fetch(`${API_BASE}/api/auth/me`, { headers: authHeader() });
+  const res = await authFetch(`/api/auth/me`);
   if (!res.ok) return null;
   return res.json() as Promise<User>;
 }
 
 /** Fetches the currently authenticated user (includes termsAcceptedAt). */
 export async function getCurrentUser(): Promise<User | null> {
-  const res = await fetch(`${API_BASE}/api/auth/me`, { headers: authHeader() });
+  const res = await authFetch(`/api/auth/me`);
   if (!res.ok) return null;
   return res.json() as Promise<User>;
 }
 
 /** Records that the logged-in user accepted the current Terms and Conditions. */
 export async function acceptTerms(): Promise<User> {
-  const res = await fetch(`${API_BASE}/api/users/me/accept-terms`, {
+  const res = await authFetch(`/api/users/me/accept-terms`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeader() },
+    headers: { "Content-Type": "application/json" },
   });
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: string };
@@ -48,9 +41,9 @@ export async function acceptTerms(): Promise<User> {
 }
 
 export async function submitIdImage(imageUrl: string): Promise<User> {
-  const res = await fetch(`${API_BASE}/api/users/me/id`, {
+  const res = await authFetch(`/api/users/me/id`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeader() },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ imageUrl }),
   });
   if (!res.ok) {
@@ -68,9 +61,9 @@ export async function updateCurrentUser(
     | "defaultAddressDetail" | "defaultMeetup" | "defaultLat" | "defaultLng"
   >>
 ): Promise<User> {
-  const res = await fetch(`${API_BASE}/api/users/me`, {
+  const res = await authFetch(`/api/users/me`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json", ...authHeader() },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
   if (!res.ok) {
@@ -81,9 +74,9 @@ export async function updateCurrentUser(
 }
 
 export async function updateAvatar(avatarUrl: string): Promise<User> {
-  const res = await fetch(`${API_BASE}/api/users/me/avatar`, {
+  const res = await authFetch(`/api/users/me/avatar`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeader() },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ avatarUrl }),
   });
   if (!res.ok) {

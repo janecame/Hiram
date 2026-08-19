@@ -1,19 +1,10 @@
 import type { NewReviewInput, Review } from "../types/review";
-import { API_BASE } from "./_base";
-
-function getToken(): string | null {
-  return localStorage.getItem("hiram_token");
-}
-
-function authHeaders(): Record<string, string> {
-  const token = getToken();
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
+import { API_BASE, authFetch } from "./_base";
 
 export async function createReview(input: NewReviewInput): Promise<Review> {
-  const res = await fetch(`${API_BASE}/api/reviews`, {
+  const res = await authFetch("/api/reviews", {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
   });
   if (res.status === 401) throw new Error("Authentication required");

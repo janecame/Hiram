@@ -1,20 +1,11 @@
 import type { User, VerificationStatus } from "../types/user";
 import type { Item } from "../types/item";
-import { API_BASE } from "./_base";
-
-function getToken(): string | null {
-  return localStorage.getItem("hiram_token");
-}
-
-function authHeaders(): Record<string, string> {
-  const token = getToken();
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
+import { authFetch } from "./_base";
 
 async function adminFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}/api/admin${path}`, {
+  const res = await authFetch(`/api/admin${path}`, {
     ...init,
-    headers: { "Content-Type": "application/json", ...authHeaders(), ...init?.headers },
+    headers: { "Content-Type": "application/json", ...init?.headers },
   });
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: string };

@@ -1,22 +1,13 @@
-import { API_BASE } from "./_base";
-
-function getToken(): string | null {
-  return localStorage.getItem("hiram_token");
-}
+import { authFetch } from "./_base";
 
 export async function uploadImage(file: File, prefix?: "items" | "ids" | "avatars"): Promise<string> {
-  const token = getToken();
-  if (!token) throw new Error("Authentication required");
-
-  const presignRes = await fetch(`${API_BASE}/api/upload/presign`, {
+  const presignRes = await authFetch("/api/upload/presign", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ filename: file.name, contentType: file.type, prefix }),
   });
 
+  if (presignRes.status === 401) throw new Error("Authentication required");
   if (!presignRes.ok) {
     const body = (await presignRes.json().catch(() => ({}))) as { error?: string };
     throw new Error(body.error ?? "Failed to get upload URL");
@@ -27,6 +18,7 @@ export async function uploadImage(file: File, prefix?: "items" | "ids" | "avatar
     publicUrl: string;
   };
 
+  // Direct S3 PUT — not our API, so this stays a plain fetch (no credentials/CSRF).
   const uploadRes = await fetch(uploadUrl, {
     method: "PUT",
     headers: { "Content-Type": file.type },

@@ -1,19 +1,10 @@
 import type { NewReportInput, Report, ReportStatus } from "../types/report";
-import { API_BASE } from "./_base";
-
-function getToken(): string | null {
-  return localStorage.getItem("hiram_token");
-}
-
-function authHeaders(): Record<string, string> {
-  const token = getToken();
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
+import { authFetch } from "./_base";
 
 export async function createReport(input: NewReportInput): Promise<Report> {
-  const res = await fetch(`${API_BASE}/api/reports`, {
+  const res = await authFetch("/api/reports", {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
   });
   if (res.status === 401) throw new Error("Authentication required");
@@ -25,26 +16,22 @@ export async function createReport(input: NewReportInput): Promise<Report> {
 }
 
 export async function getMyReports(): Promise<Report[]> {
-  const res = await fetch(`${API_BASE}/api/reports/mine`, {
-    headers: { ...authHeaders() },
-  });
+  const res = await authFetch("/api/reports/mine");
   if (!res.ok) throw new Error("Failed to fetch your reports");
   return res.json() as Promise<Report[]>;
 }
 
 export async function getAdminReports(status?: ReportStatus): Promise<Report[]> {
   const q = status ? `?status=${status}` : "";
-  const res = await fetch(`${API_BASE}/api/reports/admin${q}`, {
-    headers: { ...authHeaders() },
-  });
+  const res = await authFetch(`/api/reports/admin${q}`);
   if (!res.ok) throw new Error("Failed to fetch reports");
   return res.json() as Promise<Report[]>;
 }
 
 export async function setAdminReportStatus(id: string, status: ReportStatus, note: string): Promise<Report> {
-  const res = await fetch(`${API_BASE}/api/reports/admin/${id}/status`, {
+  const res = await authFetch(`/api/reports/admin/${id}/status`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ status, note }),
   });
   if (!res.ok) {

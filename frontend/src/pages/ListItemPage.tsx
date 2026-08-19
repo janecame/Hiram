@@ -1,6 +1,7 @@
 import {
   Box,
   Button,
+  CircularProgress,
   Container,
   MenuItem,
   Stack,
@@ -33,7 +34,7 @@ import {
 
 export function ListItemPage() {
   const navigate = useNavigate();
-  const { isAuthenticated, login, currentUser } = useAuth();
+  const { isAuthenticated, login, currentUser, isLoading: authLoading } = useAuth();
   const { mutateAsync, isPending } = useCreateItem();
   const snackbar = useSnackbar();
   const { data: fullProfile } = useUserByName(currentUser?.name);
@@ -209,6 +210,14 @@ export function ListItemPage() {
     }
   );
 
+  if (authLoading) {
+    return (
+      <Stack alignItems="center" sx={{ py: 10 }}>
+        <CircularProgress color="primary" />
+      </Stack>
+    );
+  }
+
   if (!isAuthenticated) {
     return (
       <Container maxWidth="sm" sx={{ py: { xs: 3, md: 5 }, textAlign: "center" }}>
@@ -382,6 +391,7 @@ export function ListItemPage() {
                 color="primary"
                 startIcon={<ImagePlus size={18} />}
                 onClick={() => fileInputRef.current?.click()}
+                disabled
                 sx={{ py: 2, borderStyle: "dashed" }}
               >
                 Upload a photo
@@ -393,10 +403,11 @@ export function ListItemPage() {
               type="file"
               accept="image/*"
               onChange={handleImageChange}
+              disabled
               sx={{ display: "none" }}
             />
             <Typography variant="caption" color="text.secondary">
-              Optional — no photo falls back to the category icon.
+              Photo uploads are temporarily unavailable — listings fall back to the category icon.
             </Typography>
           </Stack>
 

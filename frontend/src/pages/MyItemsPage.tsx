@@ -4,6 +4,7 @@ import {
   Box,
   Button,
   Chip,
+  CircularProgress,
   Container,
   Dialog,
   DialogActions,
@@ -74,13 +75,20 @@ const gridSx = {
 } as const;
 
 export function MyItemsPage() {
-  const { currentUser, isAuthenticated } = useAuth();
+  const { currentUser, isAuthenticated, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [deleteTarget, setDeleteTarget] = useState<Item | null>(null);
   const tabParam = searchParams.get("tab");
   const tab = tabParam === "archived" ? 1 : tabParam === "requests" ? 2 : 0;
 
+  if (authLoading) {
+    return (
+      <Stack alignItems="center" sx={{ py: 10 }}>
+        <CircularProgress color="primary" />
+      </Stack>
+    );
+  }
   if (!isAuthenticated || !currentUser) {
     return <Navigate to="/" replace />;
   }

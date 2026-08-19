@@ -1,13 +1,16 @@
 import { useState, useEffect } from "react";
 import {
+  Alert,
+  AlertTitle,
   Box,
+  Button,
   Chip,
   Container,
   Pagination,
   Stack,
   Typography,
 } from "@mui/material";
-import { MapPinOff } from "lucide-react";
+import { MapPinOff, RefreshCw } from "lucide-react";
 import { useItems, useItemSuggestions } from "../hooks/useItems";
 import { useUserLocation } from "../hooks/useUserLocation";
 import type { SortKey } from "../api/items";
@@ -61,7 +64,7 @@ export function BrowsePage() {
     setPage(1);
   }
 
-  const { data, isLoading } = useItems({
+  const { data, isLoading, isError, error, isFetching, refetch } = useItems({
     category,
     status,
     sort,
@@ -112,7 +115,29 @@ export function BrowsePage() {
         />
       )}
 
-      {isLoading ? (
+      {isError ? (
+        <Alert
+          severity="error"
+          variant="outlined"
+          sx={{ my: 4, alignItems: "center" }}
+          action={
+            <Button
+              color="inherit"
+              size="small"
+              startIcon={<RefreshCw size={14} />}
+              disabled={isFetching}
+              onClick={() => refetch()}
+            >
+              {isFetching ? "Retrying..." : "Retry"}
+            </Button>
+          }
+        >
+          <AlertTitle>Couldn't load items</AlertTitle>
+          {error instanceof Error
+            ? error.message
+            : "Something went wrong while fetching listings."}
+        </Alert>
+      ) : isLoading ? (
         <Box sx={gridSx}>
           {Array.from({ length: 8 }).map((_, i) => (
             <ItemCardSkeleton key={i} />

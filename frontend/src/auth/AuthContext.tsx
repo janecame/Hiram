@@ -2,77 +2,60 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
 import { useNavigate } from "react-router-dom";
-import type { AuthResponse } from "../api/auth";
+import { apiLogout } from "../api/auth";
+import { getCurrentUser } from "../api/users";
 import type { User } from "../types/user";
-
-const TOKEN_KEY = "hiram_token";
-
-function loadStoredUser(): User | null {
-  try {
-    const raw = localStorage.getItem(TOKEN_KEY);
-    if (!raw) return null;
-    const payload = JSON.parse(atob(raw.split(".")[1] ?? "")) as {
-      id: string;
-      email: string;
-      name: string;
-      isAdmin?: boolean;
-      exp: number;
-    };
-    if (payload.exp * 1000 < Date.now()) {
-      localStorage.removeItem(TOKEN_KEY);
-      return null;
-    }
-    return {
-      id: payload.id,
-      name: payload.name,
-      email: payload.email,
-      accountType: "solo",
-      phone: "",
-      address: "",
-      idSubmitted: false,
-      businessDocsSubmitted: false,
-      verificationStatus: "unsubmitted",
-      isAdmin: payload.isAdmin ?? false,
-      disabled: false,
-      createdAt: "",
-    };
-  } catch {
-    return null;
-  }
-}
 
 interface AuthValue {
   isAuthenticated: boolean;
+  isLoading: boolean;
   currentUser: User | null;
   login: () => void;
   logout: () => void;
   updateUser: (u: User) => void;
-  setSession: (resp: AuthResponse) => void;
+  setSession: (user: User) => void;
 }
 
 const AuthContext = createContext<AuthValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [currentUser, setCurrentUser] = useState<User | null>(loadStoredUser);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
+
+  // The session lives in an httpOnly cookie now, unreadable by JS — so on
+  // mount we have to ask the backend who (if anyone) it belongs to.
+  useEffect(() => {
+    let cancelled = false;
+    getCurrentUser()
+      .then((user) => {
+        if (!cancelled) setCurrentUser(user);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const login = useCallback(() => {
     navigate("/login");
   }, [navigate]);
 
   const logout = useCallback(() => {
-    localStorage.removeItem(TOKEN_KEY);
+    void apiLogout();
     setCurrentUser(null);
   }, []);
 
-  const setSession = useCallback((resp: AuthResponse) => {
-    localStorage.setItem(TOKEN_KEY, resp.token);
-    setCurrentUser(resp.user);
+  const setSession = useCallback((user: User) => {
+    setCurrentUser(user);
   }, []);
 
   const updateUser = useCallback((u: User) => setCurrentUser(u), []);
@@ -80,13 +63,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AuthValue>(
     () => ({
       isAuthenticated: currentUser !== null,
+      isLoading,
       currentUser,
       login,
       logout,
       updateUser,
       setSession,
     }),
-    [currentUser, login, logout, updateUser, setSession]
+    [currentUser, isLoading, login, logout, updateUser, setSession]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

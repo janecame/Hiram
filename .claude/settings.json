@@ -4,8 +4,6 @@
       "Bash(npm *)",
       "Bash(npx *)",
       "Bash(git *)",
-      "Bash(sqlcmd *)",
-      "Bash(dotnet *)",
       "Bash(New-Item *)",
       "Bash(mkdir *)",
       "Bash(touch *)",

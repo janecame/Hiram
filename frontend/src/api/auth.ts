@@ -39,3 +39,28 @@ export async function apiLogin(data: {
 export async function apiLogout(): Promise<void> {
   await authFetch("/api/auth/logout", { method: "POST" });
 }
+
+export async function apiForgotPassword(email: string): Promise<{ message: string }> {
+  const res = await authFetch("/api/auth/forgot-password", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  const body = (await res.json()) as { message?: string; error?: string };
+  if (!res.ok) throw new Error(body.error ?? "Something went wrong");
+  return { message: body.message ?? "" };
+}
+
+export async function apiResetPassword(data: {
+  token: string;
+  password: string;
+}): Promise<{ message: string }> {
+  const res = await authFetch("/api/auth/reset-password", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  const body = (await res.json()) as { message?: string; error?: string };
+  if (!res.ok) throw new Error(body.error ?? "Reset failed");
+  return { message: body.message ?? "" };
+}

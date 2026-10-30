@@ -252,6 +252,39 @@ export const UserModel = {
     );
   },
 
+  /** Stores a hash of the reset token (never the raw token) with an expiry. */
+  async setResetToken(id: string, tokenHash: string, expiresAt: Date): Promise<void> {
+    await pool.query(
+      `UPDATE public.users
+         SET reset_token_hash = $1,
+             reset_token_expires = $2
+       WHERE id = $3`,
+      [tokenHash, expiresAt, id]
+    );
+  },
+
+  /** Looks up a user by a still-valid (unexpired) reset token hash. */
+  async findByResetTokenHash(tokenHash: string): Promise<User | undefined> {
+    const result = await pool.query(
+      `SELECT * FROM public.users
+       WHERE reset_token_hash = $1
+         AND reset_token_expires > NOW()`,
+      [tokenHash]
+    );
+    return result.rows[0] ? rowToUser(result.rows[0] as Record<string, unknown>) : undefined;
+  },
+
+  /** Clears the reset token so it cannot be reused. */
+  async clearResetToken(id: string): Promise<void> {
+    await pool.query(
+      `UPDATE public.users
+         SET reset_token_hash = NULL,
+             reset_token_expires = NULL
+       WHERE id = $1`,
+      [id]
+    );
+  },
+
   async emailExists(email: string): Promise<boolean> {
     const result = await pool.query(
       `SELECT 1 FROM public.users WHERE email = $1`,

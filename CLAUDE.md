@@ -97,16 +97,25 @@ Seed accounts: any `@seed.hiram.ph` email with password `password123`.
 - Commit after significant changes with clear, focused messages. Keep commits atomic.
 - Never auto-push any branch — always wait for explicit instruction.
 - Do not auto-commit activity logs or docs files.
+- Branch flow: feature branch → PR into `pre-master-branch` → PR into `master`. Never push directly to `pre-master-branch` or `master`.
+- `master` only merges from `pre-master-branch`; both require the `Build & Lint` check to pass.
 
 ## AI Restrictions
 
 - Never output customer personal data: names, contacts, account numbers, or transactions.
 - Never output credentials: passwords, API keys, tokens, or connection strings.
 
-## Activity Log
+## Database
 
-- When completing a significant task or when context is getting complex, write a brief entry to `docs/activity-log.md` summarizing what changed and why.
-- Do not commit `docs/activity-log.md` automatically.
+- Raw SQL via `pg`, no ORM. PostGIS is active (`items.location` is `geography`).
+- Live DB can diverge from migration files — verify columns via `information_schema` before schema changes.
+- Migrations live in `backend/migrations/`, applied by `npm run migrate`. 25 exist; **next is `026`**.
+- Write idempotent SQL (`IF NOT EXISTS`, `ADD VALUE IF NOT EXISTS`) and include `created_at TIMESTAMPTZ DEFAULT NOW()` on new tables.
+- The `guard-sql.ps1` hook blocks destructive `psql` statements (DROP/TRUNCATE/DELETE/UPDATE/INSERT).
+
+## Testing
+
+- Frontend: Vitest (`npm run test:fe`). Backend: Jest + ts-jest (`npm run test:be`). Do not add a third framework.
 
 ---
 
@@ -117,15 +126,7 @@ Detailed guidance lives in the rules files — all are auto-loaded:
 | File | Covers |
 |---|---|
 | `architecture.md` | Data-flow law, backend layers, project structure, ports |
-| `backend-style.md` | Express stack, route/controller/model conventions |
+| `backend-style.md` | Express stack, route/controller/model conventions, adding `Item` fields |
 | `frontend-style.md` | MUI, typography, components, forms, routing, design tokens |
-| `data-model.md` | Item + User field tables, field sync procedure |
-| `database.md` | Live tables, enums, migration workflow, SQL guard |
-| `scope.md` | What is live, pending, disabled, and out of scope |
-| `testing.md` | Vitest (frontend) + Jest (backend), how to run them |
-| `hooks.md` | Active Claude hooks, guards, custom skills |
-| `git-workflow.md` | GitHub rulesets, branch flow, PR requirements for `pre-master-branch` / `master` |
 
-> All rules files were re-verified against source on 2026-08-19 (`/audit-claude`, see `.claude/audit-report.md`). If you find a contradiction, trust the actual source files and fix the rule.
-
-Backlog of unbuilt work lives in `.claude/task.md`. The old `.claude/plans/` and `roadmaps/` folders were deleted — do not reference them.
+If you find a contradiction, trust the actual source files and fix the rule.

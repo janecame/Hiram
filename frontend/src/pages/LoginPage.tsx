@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Box, Button, Container, Link, Paper, Stack, TextField, Typography } from "@mui/material";
+import { Box, Button, Container, IconButton, InputAdornment, Link, Paper, Stack, TextField, Typography } from "@mui/material";
+import { Eye, EyeOff } from "lucide-react";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import { apiLogin } from "../api/auth";
 import { useAuth } from "../auth/AuthContext";
@@ -9,6 +10,7 @@ export function LoginPage() {
   const { setSession } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -47,12 +49,34 @@ export function LoginPage() {
           />
           <TextField
             label="Password"
-            type="password"
+            type={showPassword ? "text" : "password"}
             fullWidth
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") { void handleSubmit(); } }}
+            slotProps={{
+              input: {
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      onClick={() => setShowPassword((v) => !v)}
+                      edge="end"
+                      size="small"
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              },
+            }}
           />
+
+          <Box sx={{ textAlign: "right" }}>
+            <Link component={RouterLink} to="/forgot-password" underline="hover" variant="body2" color="secondary">
+              Forgot password?
+            </Link>
+          </Box>
 
           {error && (
             <Typography variant="body2" color="error">

@@ -4,6 +4,7 @@ import type { Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { UserModel } from "../models/user.model";
+import { sendPasswordResetEmail } from "../lib/email";
 
 function requireJwtSecret(): string {
   const secret = process.env["JWT_SECRET"];
@@ -105,5 +106,55 @@ export const AuthController = {
     res.clearCookie("hiram_token", { httpOnly: true, secure: isProd, sameSite: isProd ? "none" : "lax" });
     res.clearCookie("hiram_csrf", { httpOnly: false, secure: isProd, sameSite: isProd ? "none" : "lax" });
     res.json({ success: true });
+  },
+
+  /** Always responds the same way regardless of whether the email exists, to avoid leaking account existence. */
+  async forgotPassword(req: Request, res: Response): Promise<void> {
+    const { email } = req.body as { email: string };
+
+    if (!email) {
+      res.status(400).json({ error: "email is required" });
+      return;
+    }
+
+    const record = await UserModel.findByEmail(email);
+    if (record && !record.disabled) {
+      const rawToken = crypto.randomBytes(32).toString("hex");
+      const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+      await UserModel.setResetToken(record.id, tokenHash, expiresAt);
+
+      const frontendUrl = process.env["FRONTEND_URL"] ?? "http://localhost:5173";
+      const resetUrl = `${frontendUrl}/reset-password?token=${rawToken}`;
+      await sendPasswordResetEmail(record.email, resetUrl);
+    }
+
+    res.json({ message: "If that email is registered, a reset link has been sent." });
+  },
+
+  async resetPassword(req: Request, res: Response): Promise<void> {
+    const { token, password } = req.body as { token: string; password: string };
+
+    if (!token || !password) {
+      res.status(400).json({ error: "token and password are required" });
+      return;
+    }
+    if (password.length < 8) {
+      res.status(400).json({ error: "Password must be at least 8 characters" });
+      return;
+    }
+
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+    const record = await UserModel.findByResetTokenHash(tokenHash);
+    if (!record) {
+      res.status(400).json({ error: "This reset link is invalid or has expired." });
+      return;
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    await UserModel.changePassword(record.id, passwordHash);
+    await UserModel.clearResetToken(record.id);
+
+    res.json({ message: "Password updated. Please log in." });
   },
 };

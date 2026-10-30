@@ -62,7 +62,11 @@ Always declare these in the route file, not the controller.
 
 ## Adding new fields to `Item`
 
-See `data-model.md` for the full procedure.
+1. Write an idempotent migration in `backend/migrations/` (next number: **026**)
+2. Update `backend/src/types/item.ts` and `frontend/src/types/item.ts` to match, including `NewItemInput` (no shared package)
+3. Update `backend/src/models/item.model.ts` — `rowToItem`, INSERT, UPDATE as needed
+4. Update `backend/src/data/mock-items.ts` and `seed.ts` if the field needs seeding
+5. Apply via `npm run migrate`
 
 ## Image uploads — currently disabled
 

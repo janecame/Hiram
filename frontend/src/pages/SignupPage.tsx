@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Box, Button, Checkbox, Container, FormControlLabel, Link, Paper, Stack, TextField, Typography } from "@mui/material";
+import { Box, Button, Checkbox, Container, FormControlLabel, IconButton, InputAdornment, Link, Paper, Stack, TextField, Typography } from "@mui/material";
+import { Eye, EyeOff } from "lucide-react";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import { apiRegister } from "../api/auth";
 import { useAuth } from "../auth/AuthContext";
@@ -10,6 +11,7 @@ export function SignupPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -62,11 +64,27 @@ export function SignupPage() {
           />
           <TextField
             label="Password"
-            type="password"
+            type={showPassword ? "text" : "password"}
             fullWidth
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") { void handleSubmit(); } }}
+            slotProps={{
+              input: {
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      onClick={() => setShowPassword((v) => !v)}
+                      edge="end"
+                      size="small"
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              },
+            }}
           />
 
           <FormControlLabel
